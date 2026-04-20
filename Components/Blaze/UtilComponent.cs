@@ -14,7 +14,7 @@ internal class UtilComponent : UtilComponentBase.Server
             mAuthenticationSource = "303107",
             mComponentIds = new List<ushort>
             {
-                1, 4, 5, 7, 9, 10, 11, 13, 15, 21, 25, 28, 2249, 2250, 2251, 2262, 2268, 30722
+                1, 4, 5, 7, 9, 10, 11, 12, 13, 15, 21, 25, 28, 2249, 2250, 2251, 2262, 2268, 30722
             },
             mConfig = new FetchConfigResponse
             {

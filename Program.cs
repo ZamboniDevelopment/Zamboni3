@@ -123,6 +123,7 @@ internal class Program
         core.AddComponent<StatsComponent>();
         core.AddComponent<GameManager>();
         core.AddComponent<GameReportingComponent>();
+        core.AddComponent<GameReportingLegacyComponent>();
         core.AddComponent<LeagueComponent>();
 
         core.AddComponent<OsdkDynamicMessagingComponent>();
@@ -131,7 +132,7 @@ internal class Program
         core.AddComponent<TwoTwoSixEightComponent>();
         core.AddComponent<OsdkTicker2Component>();
 
-        UltimateTeam.Initialize(Database.connectionString, new ServerProviderBridge());
+        UltimateTeam.Initialize(Database.ConnectionString, new ServerProviderBridge());
         core.AddComponent<CardHouseComponent>();
 
 

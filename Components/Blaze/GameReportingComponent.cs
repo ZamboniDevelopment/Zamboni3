@@ -6,22 +6,17 @@ namespace Zamboni14Legacy.Components.Blaze;
 
 internal class GameReportingComponent : GameReportingComponentBase.Server
 {
-    public override Task<NullStruct> SubmitGameReportAsync(SubmitGameReportRequest request, BlazeRpcContext context)
+    public override async Task<NullStruct> SubmitGameReportAsync(SubmitGameReportRequest request, BlazeRpcContext context)
     {
-        if (Program.Database.isEnabled) Program.Database.InsertReport(request);
-
-        Task.Run(async () =>
+        if (Program.Database.isEnabled) await Database.InsertReport(request);
+        NotifyResultNotificationAsync(context.BlazeConnection, new ResultNotification
         {
-            await Task.Delay(10);
-            NotifyResultNotificationAsync(context.BlazeConnection, new ResultNotification
-            {
-                mBlazeError = 0,
-                mFinalResult = true,
-                mGameHistoryId = request.mGameReport.mGameReportingId,
-                mGameReportingId = request.mGameReport.mGameReportingId
-            });
-        });
+            mBlazeError = 0,
+            mFinalResult = true,
+            mGameHistoryId = request.mGameReport.mGameReportingId,
+            mGameReportingId = request.mGameReport.mGameReportingId,
+        }, true);
 
-        return Task.FromResult(new NullStruct());
+        return new NullStruct();
     }
 }
