@@ -31,29 +31,6 @@ internal class AuthenticationComponent : AuthenticationComponentBase.Server
         // externalBlob.Add(0x1);
         // externalBlob.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 });
 
-        var extendedData = new UserSessionExtendedData
-        {
-            mAddress = null!,
-            mBestPingSiteAlias = "qos",
-            mBlazeObjectIdList = new List<BlazeObjectId>(),
-            mClientAttributes = new SortedDictionary<uint, int>(),
-            mClientData = null,
-            mCountry = "",
-            mDataMap = null,
-            mHardwareFlags = HardwareFlags.None,
-            mLatencyList = new List<int>
-            {
-                10
-            },
-            mQosData = new NetworkQosData
-            {
-                mDownstreamBitsPerSecond = 10,
-                mNatType = NatType.NAT_TYPE_MODERATE,
-                mUpstreamBitsPerSecond = 10
-            },
-            mUserInfoAttribute = ticket.SubjectId
-        };
-
         var userIdentification = new UserIdentification
         {
             mAccountId = (long)ticket.SubjectId,
@@ -79,49 +56,15 @@ internal class AuthenticationComponent : AuthenticationComponentBase.Server
                 mPersonaId = (long)ticket.SubjectId,
                 mPlatform = ExternalSystemId.PS3,
                 mStatus = PersonaStatus.ACTIVE,
-                mExtId = ticket.SubjectId
+                mExtId = ticket.SubjectId,
+                mExternalSystemId = ExternalSystemId.PS3
             },
             mUserId = (long)ticket.SubjectId
         };
 
-        new ServerPlayer(context.BlazeConnection, userIdentification, extendedData, sessionInfo);
+        // new ServerPlayer(context.BlazeConnection, userIdentification, extendedData, sessionInfo);
+        new ServerPlayer(context.BlazeConnection, userIdentification, sessionInfo);
         
-        Task.Run(async () =>
-        {
-            await Task.Delay(300);
-
-            await UserSessionsBase.Server.NotifyUserAuthenticated(context.BlazeConnection, new NotifyUserAuthenticated
-            {
-                mSUBS = true,
-                mBlazeUserId = userIdentification.mBlazeId
-            });
-
-            await Task.Delay(500);
-
-            await UserSessionsBase.Server.NotifyUserAddedAsync(context.BlazeConnection, new NotifyUserAdded
-            {
-                mUserInfo = userIdentification
-            });
-
-            await Task.Delay(600);
-
-            await UserSessionsBase.Server.NotifyUserSessionExtendedDataUpdateAsync(context.BlazeConnection, new UserSessionExtendedDataUpdate
-            {
-                mExtendedData = new List<UserSessionExtendedData>
-                {
-                    extendedData
-                }
-                // mUserId = userIdentification.mAccountId
-            });
-
-            await Task.Delay(800);
-
-            await UserSessionsBase.Server.NotifyUserUpdatedAsync(context.BlazeConnection, new UserStatus
-            {
-                mBlazeId = userIdentification.mBlazeId,
-                mStatusFlags = UserDataFlags.Online
-            });
-        });
         return Task.FromResult(new ConsoleLoginResponse
         {
             mCanAgeUp = false,

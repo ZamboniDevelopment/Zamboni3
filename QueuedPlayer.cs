@@ -11,6 +11,7 @@ public class QueuedPlayer
         ServerPlayer = serverPlayer;
         MatchmakingSessionId = _nextId++;
         StartMatchmakingRequest = startMatchmakingRequest;
+        ServerManager.AddQueuedPlayer(serverPlayer.UserIdentification.mAccountId, this);
     }
 
     public ServerPlayer ServerPlayer { get; }

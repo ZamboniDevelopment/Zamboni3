@@ -1,3 +1,4 @@
+using Blaze3SDK;
 using Blaze3SDK.Blaze;
 using Blaze3SDK.Components;
 using BlazeCommon;
@@ -8,29 +9,20 @@ internal class UserSessionsComponent : UserSessionsBase.Server
 {
     public override Task<NullStruct> UpdateNetworkInfoAsync(NetworkInfo request, BlazeRpcContext context)
     {
-        _ = Task.Run(async () =>
+        var serverPlayer = ServerManager.GetServerPlayerByConnectionId(context.Connection.ID);
+        if (serverPlayer == null) return Task.FromResult(new NullStruct());
+
+        var serverPlayerExtendedData = serverPlayer.ExtendedData;
+        serverPlayerExtendedData.mAddress = request.mAddress;
+        serverPlayerExtendedData.mQosData = request.mQosData;
+        serverPlayerExtendedData.mBestPingSiteAlias = request.mPingSiteLatencyByAliasMap.MinBy(pair => pair.Value).Key;
+        serverPlayer.ExtendedData = serverPlayerExtendedData;
+
+        NotifyUserSessionExtendedDataUpdateAsync(context.BlazeConnection, new UserSessionExtendedDataUpdate
         {
-            await Task.Delay(5000);
-
-            var serverPlayer = ServerManager.GetServerPlayerByConnectionId(context.Connection.ID);
-            if (serverPlayer == null) return;
-
-            var serverPlayerExtendedData = serverPlayer.ExtendedData;
-            serverPlayerExtendedData.mAddress = request.mAddress;
-            serverPlayerExtendedData.mQosData = request.mQosData;
-            serverPlayerExtendedData.mBestPingSiteAlias = "qos";
-            serverPlayer.ExtendedData = serverPlayerExtendedData;
-
-
-            await NotifyUserSessionExtendedDataUpdateAsync(context.BlazeConnection, new UserSessionExtendedDataUpdate
-            {
-                mExtendedData = new List<UserSessionExtendedData>
-                {
-                    serverPlayerExtendedData
-                }
-                // mUserId = serverPlayer.UserIdentification.mBlazeId
-            });
-        });
+            mExtendedData = serverPlayerExtendedData,
+            mUserId = serverPlayer.UserIdentification.mBlazeId
+        }, true);
 
         return Task.FromResult(new NullStruct());
     }
@@ -49,7 +41,7 @@ internal class UserSessionsComponent : UserSessionsBase.Server
     public override Task<UserData> LookupUserAsync(UserIdentification request, BlazeRpcContext context)
     {
         var target = ServerManager.GetServerPlayerByName(request.mName);
-        if (target == null) return Task.FromResult(new UserData());
+        if (target == null) throw new BlazeRpcException(Blaze3RpcError.USER_ERR_USER_NOT_FOUND);
         return Task.FromResult(new UserData
         {
             mExtendedData = target.ExtendedData,

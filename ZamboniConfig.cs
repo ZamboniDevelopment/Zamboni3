@@ -9,4 +9,9 @@ public class ZamboniConfig
     public bool HostRedirectorInstance { get; set; } = true;
     public string ApiServerIdentifier { get; set; } = "nhl14";
     public string ApiServerPort { get; set; } = "8082";
+    public string TargetProtocol { get; set; } = "NHL14_1.00";
+    public bool UseRelayServerImplementation { get; set; } = false;
+    public Dictionary<string, RelayInstanceConfig> Relays { get; set; } = new();
+    public SortedDictionary<string, string> Config { get; set; } = new();
+    public int TopologyOverride { get; set; } = 0;
 }

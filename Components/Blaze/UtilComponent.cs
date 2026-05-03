@@ -9,6 +9,18 @@ internal class UtilComponent : UtilComponentBase.Server
 {
     public override Task<PreAuthResponse> PreAuthAsync(PreAuthRequest request, BlazeRpcContext context)
     {
+        var pingSitesConfig = Program.ZamboniConfig.Relays;
+        var responsePingSites = new SortedDictionary<string, QosPingSiteInfo>();
+        foreach (var configSection in pingSitesConfig)
+        {
+            responsePingSites.Add(configSection.Key, new QosPingSiteInfo
+            {
+                mAddress = configSection.Value.Ip,
+                mPort = configSection.Value.PingSitePort,
+                mSiteName = configSection.Key
+            });
+        }
+
         return Task.FromResult(new PreAuthResponse
         {
             mAuthenticationSource = "303107",
@@ -43,17 +55,7 @@ internal class UtilComponent : UtilComponentBase.Server
                     mSiteName = "qos"
                 },
                 mNumLatencyProbes = 10,
-                mPingSiteInfoByAliasMap = new SortedDictionary<string, QosPingSiteInfo>
-                {
-                    {
-                        "qos", new QosPingSiteInfo
-                        {
-                            mAddress = Program.GameServerIp,
-                            mPort = 17502,
-                            mSiteName = "qos"
-                        }
-                    }
-                },
+                mPingSiteInfoByAliasMap = responsePingSites,
                 mServiceId = 1161889797
             },
             mRegistrationSource = "303107",
@@ -89,7 +91,7 @@ internal class UtilComponent : UtilComponentBase.Server
 
     public override Task<PingResponse> PingAsync(NullStruct request, BlazeRpcContext context)
     {
-        var time = (uint)DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
+        var time = Util.TimeNow();
         var serverPlayer = ServerManager.GetServerPlayerByConnectionId(context.Connection.ID);
         if (serverPlayer != null) serverPlayer.LastPingedTime = time;
         return Task.FromResult(new PingResponse
@@ -148,22 +150,9 @@ internal class UtilComponent : UtilComponentBase.Server
 
     public override Task<FetchConfigResponse> FetchClientConfigAsync(FetchClientConfigRequest request, BlazeRpcContext context)
     {
-        if (request.mConfigSection.Equals("OSDK_ROSTER"))
-            return Task.FromResult(new FetchConfigResponse
-            {
-                mConfig = new SortedDictionary<string, string>
-                {
-                    {
-                        "CRC", ""
-                    },
-                    {
-                        "URL", ""
-                    }
-                }
-            });
         return Task.FromResult(new FetchConfigResponse
         {
-            mConfig = new SortedDictionary<string, string>()
+            mConfig = Program.ZamboniConfig.Config
         });
     }
 
@@ -180,7 +169,7 @@ internal class UtilComponent : UtilComponentBase.Server
             mLocalizedStrings = retList
         });
     }
-    
+
     public override Task<FilterUserTextResponse> FilterForProfanityAsync(FilterUserTextResponse request, BlazeRpcContext context)
     {
         var response = new List<FilteredUserText>();

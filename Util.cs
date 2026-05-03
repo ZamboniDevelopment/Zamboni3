@@ -23,4 +23,9 @@ public static class Util
         var address = new IPAddress(bytes);
         return address.ToString();
     }
+
+    public static uint TimeNow()
+    {
+        return (uint)DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
+    }
 }
