@@ -43,6 +43,7 @@ internal class Program
         tasks.Add(StartCoreServer());
         tasks.Add(new Api().StartAsync());
         if (ZamboniConfig.HostRedirectorInstance) tasks.Add(StartRedirectorServer());
+        await RelayCommunicator.ResetAllInstances([ZamboniConfig.TargetProtocol]);
         Logger.Warn(Name + " started");
         await Task.WhenAll(tasks);
     }

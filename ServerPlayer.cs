@@ -2,19 +2,19 @@ using Blaze3SDK.Blaze;
 using Blaze3SDK.Blaze.Authentication;
 using Blaze3SDK.Blaze.GameManager;
 using BlazeCommon;
+using Tdf;
 
 namespace Zamboni14Legacy;
 
 public class ServerPlayer
 {
-
-    public ServerPlayer(BlazeServerConnection blazeServerConnection, UserIdentification userIdentification, UserSessionExtendedData extendedData, SessionInfo sessionInfo)
+    public ServerPlayer(BlazeServerConnection blazeServerConnection, UserIdentification userIdentification, SessionInfo sessionInfo)
     {
         BlazeServerConnection = blazeServerConnection;
         UserIdentification = userIdentification;
-        ExtendedData = extendedData;
+        ExtendedData = new UserSessionExtendedData();
         SessionInfo = sessionInfo;
-        _ = ServerManager.AddServerPlayer(userIdentification.mAccountId, this);
+        ServerManager.AddServerPlayer(userIdentification.mAccountId, this);
     }
 
     public BlazeServerConnection BlazeServerConnection { get; }
@@ -23,7 +23,7 @@ public class ServerPlayer
     public SessionInfo SessionInfo { get; set; }
     public uint LastPingedTime { get; set; }
 
-    public ReplicatedGamePlayer ToReplicatedGamePlayer(byte slot, ulong gameId)
+    public ReplicatedGamePlayer ToReplicatedGamePlayer(byte slot, ulong gameId, NetworkAddress address = null)
     {
         return new ReplicatedGamePlayer
         {
@@ -31,8 +31,16 @@ public class ServerPlayer
             mCustomData = UserIdentification.mExternalBlob,
             mExternalId = UserIdentification.mExternalId,
             mGameId = gameId,
-            mJoinedGameTimestamp = 0,
-            mNetworkAddress = ExtendedData.mAddress,
+            mJoinedGameTimestamp = Util.TimeNow(),
+            mNetworkAddress = address == null ? ExtendedData.mAddress : address,
+            // mNetworkAddress = new NetworkAddress
+            // {
+            //     IpAddress = new IpAddress
+            //     {
+            //         mIp = ExtendedData.mAddress.IpPairAddress.Value.mInternalAddress.mIp,
+            //         mPort = ExtendedData.mAddress.IpPairAddress.Value.mInternalAddress.mPort
+            //     },
+            // },
             mPlayerAttribs = new SortedDictionary<string, string>(),
             mPlayerId = UserIdentification.mBlazeId,
             mPlayerName = UserIdentification.mName,

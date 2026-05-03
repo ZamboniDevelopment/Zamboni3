@@ -20,6 +20,7 @@
       <ProjectReference Include="..\BlazeSDK\Blaze3SDK\Blaze3SDK.csproj" />
       <ProjectReference Include="..\BlazeSDK\Tdf\Tdf.csproj" />
       <ProjectReference Include="..\PSN\SceNetNp\SceNetNp.csproj" />
+      <ProjectReference Include="..\RelayProtocol\RelayProtocol.csproj" />
       <ProjectReference Include="..\ZamboniCommonComponents\ZamboniCommonComponents.csproj" />
       <ProjectReference Include="..\ZamboniUltimateTeam\ZamboniUltimateTeam.csproj" />
     </ItemGroup>
