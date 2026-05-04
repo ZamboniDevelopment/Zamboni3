@@ -11,14 +11,14 @@ internal class ClubsComponent : ClubsComponentBase.Server
         return Task.FromResult(new ClubsComponentSettings());
     }
     
-    public override Task<NullStruct> GetClubsAsync(NullStruct request, BlazeRpcContext context)
+    public override Task<GetClubsResponse> GetClubsAsync(GetClubsRequest request, BlazeRpcContext context)
     {
-        return Task.FromResult(new NullStruct());
+        return Task.FromResult(new GetClubsResponse());
     }
     
-    public override Task<NullStruct> GetClubMembershipForUsersAsync(NullStruct request, BlazeRpcContext context)
+    public override Task<GetClubMembershipForUsersResponse> GetClubMembershipForUsersAsync(GetClubMembershipForUsersRequest request, BlazeRpcContext context)
     {
-        return Task.FromResult(new NullStruct());
+        return Task.FromResult(new GetClubMembershipForUsersResponse());
     }
     
 }

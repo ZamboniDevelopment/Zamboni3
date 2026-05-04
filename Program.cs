@@ -127,10 +127,11 @@ internal class Program
         core.AddComponent<GameReportingLegacyComponent>();
         core.AddComponent<LeagueComponent>();
 
+        core.AddComponent<OSDKSeasonalPlayComponent>();
         core.AddComponent<OsdkDynamicMessagingComponent>();
-        core.AddComponent<TwoTwoFiveOneComponent>();
+        core.AddComponent<OsdkWebOfferSurveyComponent>();
         core.AddComponent<OSDKSettingsComponent>();
-        core.AddComponent<TwoTwoSixEightComponent>();
+        core.AddComponent<OsdkOnlinePassComponent>();
         core.AddComponent<OsdkTicker2Component>();
 
         UltimateTeam.Initialize(Database.ConnectionString, new ServerProviderBridge());

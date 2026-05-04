@@ -103,9 +103,26 @@ internal class AuthenticationComponent : AuthenticationComponentBase.Server
         });
     }
 
+    public override Task<NullStruct> HasEntitlementAsync(HasEntitlementRequest request, BlazeRpcContext context)
+    {
+        return Task.FromResult(new NullStruct());
+    }
+    
     public override Task<NullStruct> LogoutAsync(NullStruct request, BlazeRpcContext context)
     {
         return Task.FromResult(new NullStruct());
+    }
+    
+    public override Task<GetTosInfoResponse> GetTosInfoAsync(GetTosInfoRequest request, BlazeRpcContext context)
+    {
+        return Task.FromResult(new GetTosInfoResponse
+        {
+            mEaMayContact = 0,
+            mPartnersMayContact = 0,
+            mPrivacyPolicyUri = "",
+            mTosHost = "",
+            mTosUri = ""
+        });
     }
 
     public override Task<Entitlements> ListUserEntitlements2Async(ListUserEntitlements2Request request, BlazeRpcContext context)

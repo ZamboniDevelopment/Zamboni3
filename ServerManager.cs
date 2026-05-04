@@ -26,6 +26,12 @@ public static class ServerManager
         {
             mUserInfo = serverPlayer.UserIdentification
         },true);
+        
+        UserSessionsBase.Server.NotifyUserSessionExtendedDataUpdateAsync(serverPlayer.BlazeServerConnection, new UserSessionExtendedDataUpdate()
+        {
+            mExtendedData = new UserSessionExtendedData(),
+            mUserId =  serverPlayer.UserIdentification.mAccountId
+        },true);
     }
 
     public static void AddQueuedPlayer(long userId, QueuedPlayer queuedPlayer)

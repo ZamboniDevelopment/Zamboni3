@@ -107,15 +107,28 @@ internal class UtilComponent : UtilComponentBase.Server
 
     public override Task<UserSettingsLoadAllResponse> UserSettingsLoadAllAsync(UserSettingsLoadAllRequest request, BlazeRpcContext context)
     {
+        var serverPlayer = ServerManager.GetServerPlayerByConnectionId(context.Connection.ID)!;
         return Task.FromResult(new UserSettingsLoadAllResponse
         {
-            mDataMap = new SortedDictionary<string, string>()
+            mDataMap = serverPlayer.UserSettings
         });
     }
 
     public override Task<UserSettingsResponse> UserSettingsLoadAsync(UserSettingsLoadRequest request, BlazeRpcContext context)
     {
-        return Task.FromResult(new UserSettingsResponse());
+        var serverPlayer = ServerManager.GetServerPlayerByConnectionId(context.Connection.ID)!;
+        serverPlayer.UserSettings.TryGetValue(request.mKey, out var value);
+        return Task.FromResult(new UserSettingsResponse
+        {
+            mData = value == null ? "" : value,
+            mKey = request.mKey
+        });
+    }
+    public override Task<NullStruct> UserSettingsSaveAsync(UserSettingsSaveRequest request, BlazeRpcContext context)
+    {
+        var serverPlayer = ServerManager.GetServerPlayerByConnectionId(context.Connection.ID)!;
+        serverPlayer.UserSettings[request.mKey] = request.mData;
+        return Task.FromResult(new NullStruct());
     }
 
     private GetTelemetryServerResponse GetTele()

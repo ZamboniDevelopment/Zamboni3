@@ -2,7 +2,6 @@ using Blaze3SDK.Blaze;
 using Blaze3SDK.Blaze.Authentication;
 using Blaze3SDK.Blaze.GameManager;
 using BlazeCommon;
-using Tdf;
 
 namespace Zamboni14Legacy;
 
@@ -22,6 +21,7 @@ public class ServerPlayer
     public UserSessionExtendedData ExtendedData { get; set; }
     public SessionInfo SessionInfo { get; set; }
     public uint LastPingedTime { get; set; }
+    public SortedDictionary<string, string> UserSettings { get; set; } = new();
 
     public ReplicatedGamePlayer ToReplicatedGamePlayer(byte slot, ulong gameId, NetworkAddress address = null)
     {
