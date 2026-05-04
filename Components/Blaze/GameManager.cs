@@ -51,7 +51,7 @@ internal class GameManager : GameManagerBase.Server
     public override async Task<JoinGameResponse> ResetDedicatedServerAsync(CreateGameRequest request, BlazeRpcContext context)
     {
         var host = ServerManager.GetServerPlayerByConnectionId(context.Connection.ID)!;
-
+        
         var serverGame = await ServerGame.CreateAsync(host, request);
 
         await serverGame.AddGameParticipant(host);
@@ -311,6 +311,9 @@ internal class GameManager : GameManagerBase.Server
     public override async Task<CreateGameResponse> CreateGameAsync(CreateGameRequest request, BlazeRpcContext context)
     {
         var host = ServerManager.GetServerPlayerByConnectionId(context.Connection.ID);
+        
+        if (request.mGameTypeName.Equals("gameType6")) throw new BlazeRpcException(Blaze3RpcError.ERR_COMMAND_NOT_FOUND);
+        
         var serverGame = await ServerGame.CreateAsync(host, request);
 
         await serverGame.AddGameParticipant(host);
