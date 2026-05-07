@@ -324,6 +324,7 @@ internal class GameManager : GameManagerBase.Server
             mGameId = serverGame.ReplicatedGameData.mGameId
         };
     }
+    // mFitScore = (uint)(serverGame.ReplicatedGameData.mPingSiteAlias == searcher.ExtendedData.mBestPingSiteAlias ? 10 : 1),
 
     private static void UpdateGameLobbies()
     {
@@ -390,12 +391,18 @@ internal class GameManager : GameManagerBase.Server
                     mNetworkTopology = serverGame.ReplicatedGameData.mNetworkTopology,
                     mPersistedGameId = serverGame.ReplicatedGameData.mPersistedGameId,
                     mPingSiteAlias = serverGame.ReplicatedGameData.mPingSiteAlias,
-                    mPlayerCounts = serverGame.ReplicatedGameData.mTeamIds,
+                    mPlayerCounts = new List<ushort>
+                    {
+                        0,0
+                    },
                     mPresenceMode = serverGame.ReplicatedGameData.mPresenceMode,
                     mQueueCapacity = serverGame.ReplicatedGameData.mQueueCapacity,
                     mQueueCount = serverGame.ReplicatedGameData.mQueueCapacity,
-                    mSlotCapacities = serverGame.ReplicatedGameData.mSlotCapacities,
-                    mTeamCapacity = ushort.MaxValue,
+                    mSlotCapacities = new List<ushort>
+                    {
+                        1,1
+                    },
+                    mTeamCapacity = 5,
                     mVoipTopology = VoipTopology.VOIP_DISABLED
                 }
             });

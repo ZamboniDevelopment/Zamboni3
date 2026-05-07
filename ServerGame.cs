@@ -194,10 +194,14 @@ public class ServerGame
                 mGameRoster = ReplicatedGamePlayers.Values.ToList(),
                 mGameSetupReason = new GameSetupReason
                 {
-                    ResetDedicatedServerSetupContext = new ResetDedicatedServerSetupContext
+                    MatchmakingSetupContext = new MatchmakingSetupContext
                     {
-                        mJoinErr = 0
-                    },
+                        mFitScore = 10,
+                        mMatchmakingResult = MatchmakingResult.SUCCESS_CREATED_GAME,
+                        mMaxPossibleFitScore = 10,
+                        mSessionId = matchmakingSessionId,
+                        mUserSessionId = 0
+                    }
                 }
             }, true);
             GameManagerBase.Server.NotifySelectedAsHostAsync(serverPlayer.BlazeServerConnection, new NotifySelectedAsHost
@@ -213,17 +217,18 @@ public class ServerGame
                 mGameRoster = ReplicatedGamePlayers.Values.ToList(),
                 mGameSetupReason = new GameSetupReason
                 {
-                    DatalessSetupContext = new DatalessSetupContext
+                    MatchmakingSetupContext = new MatchmakingSetupContext
                     {
-                        mSetupContext = DatalessContext.JOIN_GAME_SETUP_CONTEXT
-                    },
+                        mFitScore = 10,
+                        mMatchmakingResult = MatchmakingResult.SUCCESS_CREATED_GAME,
+                        mMaxPossibleFitScore = 010,
+                        mSessionId = matchmakingSessionId,
+                        mUserSessionId = 0
+                    }
                 }
             }, true);
         }
-
         
-
-
         ServerPlayers.Values.ToList().ForEach(participant => GameManagerBase.Server.NotifyPlayerJoiningAsync(participant.BlazeServerConnection, new NotifyPlayerJoining
         {
             mGameId = ReplicatedGameData.mGameId,
