@@ -138,12 +138,12 @@ public class ServerGame
             mSharedSeed = (uint)gameId,
             mSlotCapacities = new List<ushort>
             {
-                3,0
+                3, 0
             },
             mTeamCapacity = 65535,
             mTeamIds = new List<ushort>
             {
-                65535,65535
+                65535, 65535
             },
             mTopologyHostInfo = new HostInfo
             {
@@ -207,7 +207,7 @@ public class ServerGame
             GameManagerBase.Server.NotifySelectedAsHostAsync(serverPlayer.BlazeServerConnection, new NotifySelectedAsHost
             {
                 mGameId = (uint)ReplicatedGameData.mGameId
-            },true);
+            }, true);
         }
         else
         {
@@ -228,7 +228,7 @@ public class ServerGame
                 }
             }, true);
         }
-        
+
         ServerPlayers.Values.ToList().ForEach(participant => GameManagerBase.Server.NotifyPlayerJoiningAsync(participant.BlazeServerConnection, new NotifyPlayerJoining
         {
             mGameId = ReplicatedGameData.mGameId,
@@ -257,7 +257,13 @@ public class ServerGame
 
     public async Task RemoveGame()
     {
-        GameManager.StaleGames.TryAdd(ReplicatedGameData.mGameId, Util.TimeNow());
+        GameManager.StaleGames.Enqueue(ReplicatedGameData.mGameId);
+
+        while (GameManager.StaleGames.Count > 20)
+        {
+            GameManager.StaleGames.TryDequeue(out _);
+        }
+
         if (relayed)
         {
             await RelayCommunicator.DestroyRelayInstance(this);

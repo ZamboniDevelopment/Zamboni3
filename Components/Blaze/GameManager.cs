@@ -14,7 +14,7 @@ internal class GameManager : GameManagerBase.Server
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private static readonly Timer Timer;
-    public static ConcurrentDictionary<ulong, uint> StaleGames = new();
+    public static ConcurrentQueue<ulong> StaleGames = new();
 
     static GameManager()
     {
@@ -332,7 +332,7 @@ internal class GameManager : GameManagerBase.Server
         {
             mIsFinalUpdate = 1,
             mListId = 1,
-            mRemovedGameList = StaleGames.Keys.ToList(),
+            mRemovedGameList = StaleGames.ToList(),
             mUpdatedGames = GetLobbies(sp)
         }, true));
     }
