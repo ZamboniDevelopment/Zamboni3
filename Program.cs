@@ -134,7 +134,7 @@ internal class Program
         core.AddComponent<OsdkOnlinePassComponent>();
         core.AddComponent<OsdkTicker2Component>();
 
-        UltimateTeam.Initialize(Database.ConnectionString, new ServerProviderBridge());
+        UltimateTeam.Initialize(Database.ConnectionString, new ServerProviderBridge(), "packs.yml");
         core.AddComponent<CardHouseComponent>();
 
 
@@ -160,7 +160,7 @@ internal class Program
             switch (input.Trim().ToLowerInvariant())
             {
                 case "help":
-                    Logger.Warn("Available commands: help, status");
+                    Logger.Warn("Available commands: help, status, reload");
                     break;
 
                 case "status":
@@ -178,6 +178,11 @@ internal class Program
                     foreach (var queuedPlayer in ServerManager.GetQueuedPlayers().Values) Logger.Info(queuedPlayer.ServerPlayer.UserIdentification.mName);
                     Logger.Info("Server Games: " + ServerManager.GetServerGames().Count);
                     foreach (var serverGame in ServerManager.GetServerGames()) Logger.Info(serverGame);
+                    break;
+                
+                case "reload":
+                    UltimateTeam.ReloadPackConfig();
+                    Logger.Warn("Reloaded configs");
                     break;
 
                 default:

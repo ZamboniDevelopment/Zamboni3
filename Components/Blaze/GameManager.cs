@@ -68,6 +68,7 @@ internal class GameManager : GameManagerBase.Server
         var serverGame = await ServerGame.CreateAsync(host.ServerPlayer, startMatchmakingRequest);
 
         await serverGame.AddGameParticipant(host.ServerPlayer, host.MatchmakingSessionId);
+        await Task.Delay(2000);
         await serverGame.AddGameParticipant(notHost.ServerPlayer, notHost.MatchmakingSessionId);
     }
 
