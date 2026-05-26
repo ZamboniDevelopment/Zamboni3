@@ -134,7 +134,7 @@ internal class Program
         core.AddComponent<OsdkOnlinePassComponent>();
         core.AddComponent<OsdkTicker2Component>();
 
-        UltimateTeam.Initialize(Database.ConnectionString, new ServerProviderBridge(), "packs.yml");
+        UltimateTeam.Initialize(Database.ConnectionString, new ServerProviderBridge());
         core.AddComponent<CardHouseComponent>();
 
 
@@ -181,7 +181,7 @@ internal class Program
                     break;
                 
                 case "reload":
-                    UltimateTeam.ReloadPackConfig();
+                    UltimateTeam.ReloadConfigs();
                     Logger.Warn("Reloaded configs");
                     break;
 
