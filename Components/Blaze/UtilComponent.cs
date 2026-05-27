@@ -110,7 +110,7 @@ internal class UtilComponent : UtilComponentBase.Server
         var serverPlayer = ServerManager.GetServerPlayerByConnectionId(context.Connection.ID)!;
         return Task.FromResult(new UserSettingsLoadAllResponse
         {
-            mDataMap = serverPlayer.UserSettings
+            mDataMap = new SortedDictionary<string, string>(serverPlayer.UserSettings)
         });
     }
 

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Blaze3SDK.Blaze;
 using Blaze3SDK.Blaze.Authentication;
 using Blaze3SDK.Blaze.GameManager;
@@ -13,6 +14,8 @@ public class ServerPlayer
         UserIdentification = userIdentification;
         ExtendedData = new UserSessionExtendedData();
         SessionInfo = sessionInfo;
+        UserSettings.TryAdd("FirstTimeFlag", "0");
+        // UserSettings.TryAdd("MUPSET", File.ReadAllText("filename.txt"));
         ServerManager.AddServerPlayer(userIdentification.mAccountId, this);
     }
 
@@ -21,7 +24,7 @@ public class ServerPlayer
     public UserSessionExtendedData ExtendedData { get; set; }
     public SessionInfo SessionInfo { get; set; }
     public uint LastPingedTime { get; set; }
-    public SortedDictionary<string, string> UserSettings { get; set; } = new();
+    public ConcurrentDictionary<string, string> UserSettings { get; set; } = new();
 
     public ReplicatedGamePlayer ToReplicatedGamePlayer(byte slot, ulong gameId, NetworkAddress address = null)
     {
