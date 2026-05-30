@@ -199,4 +199,9 @@ internal class UtilComponent : UtilComponentBase.Server
             mFilteredTextList = response
         });
     }
+    
+    public override Task<NullStruct> SetClientMetricsAsync(ClientMetrics request, BlazeRpcContext context)
+    {
+        return Task.FromResult(new NullStruct());
+    }
 }
