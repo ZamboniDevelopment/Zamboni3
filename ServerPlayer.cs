@@ -14,7 +14,7 @@ public class ServerPlayer
         UserIdentification = userIdentification;
         ExtendedData = new UserSessionExtendedData();
         SessionInfo = sessionInfo;
-        UserSettings.TryAdd("FirstTimeFlag", "0");
+        // UserSettings.TryAdd("FirstTimeFlag", "0");
         // UserSettings.TryAdd("MUPSET", File.ReadAllText("filename.txt"));
         ServerManager.AddServerPlayer(userIdentification.mAccountId, this);
     }
