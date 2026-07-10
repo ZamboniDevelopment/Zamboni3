@@ -134,9 +134,11 @@ internal class Program
         core.AddComponent<OsdkOnlinePassComponent>();
         core.AddComponent<OsdkTicker2Component>();
 
-        UltimateTeam.Initialize(Database.ConnectionString, new ServerProviderBridge());
-        core.AddComponent<CardHouseComponent>();
-
+        if (Database.isEnabled)
+        {
+            UltimateTeam.Initialize(Database.ConnectionString, new ServerProviderBridge());
+            core.AddComponent<CardHouseComponent>();
+        }
 
         tdfFactory.RegisterTdfType(typeof(Report));
         tdfFactory.RegisterTdfType(typeof(ClubReportVersusGame));
@@ -179,7 +181,7 @@ internal class Program
                     Logger.Info("Server Games: " + ServerManager.GetServerGames().Count);
                     foreach (var serverGame in ServerManager.GetServerGames()) Logger.Info(serverGame);
                     break;
-                
+
                 case "reload":
                     UltimateTeam.ReloadConfigs();
                     Logger.Warn("Reloaded configs");
