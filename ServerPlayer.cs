@@ -15,6 +15,8 @@ public class ServerPlayer
         ExtendedData = new UserSessionExtendedData();
         SessionInfo = sessionInfo;
         // UserSettings.TryAdd("FirstTimeFlag", "0");
+        // UserSettings.TryAdd("glproglevel", "17");
+        // UserSettings.TryAdd("skproglevel", "17");
         // UserSettings.TryAdd("MUPSET", File.ReadAllText("filename.txt"));
         ServerManager.AddServerPlayer(userIdentification.mAccountId, this);
     }
@@ -26,24 +28,15 @@ public class ServerPlayer
     public uint LastPingedTime { get; set; }
     public ConcurrentDictionary<string, string> UserSettings { get; set; } = new();
 
-    public ReplicatedGamePlayer ToReplicatedGamePlayer(byte slot, ulong gameId, NetworkAddress address = null)
+    public ReplicatedGamePlayer ToReplicatedGamePlayer(byte slot, ulong gameId, bool hideAddress, NetworkAddress address = null)
     {
-        return new ReplicatedGamePlayer
+        var replicatedGamePlayer = new ReplicatedGamePlayer
         {
             mAccountLocale = 1701729619,
             mCustomData = UserIdentification.mExternalBlob,
             mExternalId = UserIdentification.mExternalId,
             mGameId = gameId,
             mJoinedGameTimestamp = Util.TimeNow(),
-            mNetworkAddress = address == null ? ExtendedData.mAddress : address,
-            // mNetworkAddress = new NetworkAddress
-            // {
-            //     IpAddress = new IpAddress
-            //     {
-            //         mIp = ExtendedData.mAddress.IpPairAddress.Value.mInternalAddress.mIp,
-            //         mPort = ExtendedData.mAddress.IpPairAddress.Value.mInternalAddress.mPort
-            //     },
-            // },
             mPlayerAttribs = new SortedDictionary<string, string>(),
             mPlayerId = UserIdentification.mBlazeId,
             mPlayerName = UserIdentification.mName,
@@ -54,5 +47,8 @@ public class ServerPlayer
             mTeamIndex = slot,
             mUserGroupId = default
         };
+        if (hideAddress) return replicatedGamePlayer;
+        replicatedGamePlayer.mNetworkAddress = address ?? ExtendedData.mAddress;
+        return replicatedGamePlayer;
     }
 }

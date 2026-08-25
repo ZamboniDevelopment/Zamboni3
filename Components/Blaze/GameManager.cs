@@ -6,6 +6,7 @@ using Blaze3SDK.Blaze.GameManager;
 using Blaze3SDK.Components;
 using BlazeCommon;
 using NLog;
+using ZProtocol;
 using Timer = System.Timers.Timer;
 
 namespace Zamboni14Legacy.Components.Blaze;
@@ -52,7 +53,7 @@ internal class GameManager : GameManagerBase.Server
     {
         var host = ServerManager.GetServerPlayerByConnectionId(context.Connection.ID)!;
 
-        var serverGame = await ServerGame.CreateAsync(host, request);
+        var serverGame = await ServerGame.CreateAsync(host, request, ZamboniTopology.Dedicated);
 
         await serverGame.AddGameParticipant(host);
         UpdateGameLobbies();
@@ -65,10 +66,12 @@ internal class GameManager : GameManagerBase.Server
 
     private static async Task SendToMatchMakingGame(QueuedPlayer host, QueuedPlayer notHost, StartMatchmakingRequest startMatchmakingRequest)
     {
-        var serverGame = await ServerGame.CreateAsync(host.ServerPlayer, startMatchmakingRequest);
+        Enum.TryParse(Program.ZamboniConfig.ZamboniTopology, out ZamboniTopology zamboniTopology);
+
+        var serverGame = await ServerGame.CreateAsync(host.ServerPlayer, startMatchmakingRequest, zamboniTopology);
 
         await serverGame.AddGameParticipant(host.ServerPlayer, host.MatchmakingSessionId);
-        await Task.Delay(2000);
+        await Task.Delay(1000);
         await serverGame.AddGameParticipant(notHost.ServerPlayer, notHost.MatchmakingSessionId);
     }
 
@@ -118,7 +121,7 @@ internal class GameManager : GameManagerBase.Server
         if (!serverGame.HasSpaceForPlayer()) throw new BlazeRpcException(Blaze3RpcError.GAMEMANAGER_ERR_GAME_FULL);
 
         await serverGame.AddGameParticipant(serverPlayer);
-
+        UpdateGameLobbies();
         return new JoinGameResponse
         {
             mGameId = request.mGameId,
@@ -207,10 +210,15 @@ internal class GameManager : GameManagerBase.Server
 
     public override async Task<NullStruct> UpdateMeshConnectionAsync(UpdateMeshConnectionRequest request, BlazeRpcContext context)
     {
+        var serverPlayer = ServerManager.GetServerPlayerByConnectionId(context.Connection.ID);
         var serverGame = ServerManager.GetServerGame(request.mGameId);
-        if (serverGame == null) throw new BlazeRpcException(Blaze3RpcError.GAMEMANAGER_ERR_INVALID_GAME_ID);
+        if (serverGame == null) return new NullStruct();
 
         foreach (var playerConnectionStatus in request.mMeshConnectionStatusList)
+        {
+            var target = playerConnectionStatus.mTargetPlayer == 123 ? serverPlayer.UserIdentification.mBlazeId : playerConnectionStatus.mTargetPlayer;
+            // var target =  playerConnectionStatus.mTargetPlayer;
+
             switch (playerConnectionStatus.mPlayerNetConnectionStatus)
             {
                 case PlayerNetConnectionStatus.CONNECTED:
@@ -218,15 +226,20 @@ internal class GameManager : GameManagerBase.Server
                     var statePacket = new NotifyGamePlayerStateChange
                     {
                         mGameId = request.mGameId,
-                        mPlayerId = playerConnectionStatus.mTargetPlayer,
+                        mPlayerId = target,
                         mPlayerState = PlayerState.ACTIVE_CONNECTED
                     };
-                    serverGame.ServerPlayers.Values.ToList().ForEach(participant => NotifyGamePlayerStateChangeAsync(participant.BlazeServerConnection, statePacket));
+                    if (serverGame.ReplicatedGamePlayers.TryGetValue(target, out var realPlayer))
+                    {
+                        realPlayer.mPlayerState = PlayerState.ACTIVE_CONNECTED;
+                        serverGame.ReplicatedGamePlayers[realPlayer.mPlayerId] = realPlayer;
+                        serverGame.ServerPlayers.Values.ToList().ForEach(participant => NotifyGamePlayerStateChangeAsync(participant.BlazeServerConnection, statePacket));
+                    }
 
                     var joinCompletedPacket = new NotifyPlayerJoinCompleted
                     {
                         mGameId = request.mGameId,
-                        mPlayerId = playerConnectionStatus.mTargetPlayer
+                        mPlayerId = target
                     };
                     serverGame.ServerPlayers.Values.ToList().ForEach(participant => NotifyPlayerJoinCompletedAsync(participant.BlazeServerConnection, joinCompletedPacket));
                     break;
@@ -236,7 +249,7 @@ internal class GameManager : GameManagerBase.Server
                     var statePacket = new NotifyGamePlayerStateChange
                     {
                         mGameId = request.mGameId,
-                        mPlayerId = playerConnectionStatus.mTargetPlayer,
+                        mPlayerId = target,
                         mPlayerState = PlayerState.ACTIVE_CONNECTING
                     };
                     serverGame.ServerPlayers.Values.ToList().ForEach(participant => NotifyGamePlayerStateChangeAsync(participant.BlazeServerConnection, statePacket));
@@ -244,25 +257,40 @@ internal class GameManager : GameManagerBase.Server
                 }
                 case PlayerNetConnectionStatus.DISCONNECTED:
                 {
-                    //TODO
-                    await serverGame.RemoveGame();
+                    serverGame.RemoveGameParticipant(ServerManager.GetServerPlayerByUserId(target), PlayerRemovedReason.PLAYER_CONN_LOST);
                     break;
                 }
                 default:
                     Logger.Debug("Unknown player connection status: " + playerConnectionStatus.mPlayerNetConnectionStatus);
                     break;
             }
+        }
+
 
         return new NullStruct();
     }
 
+
     public override async Task<NullStruct> RemovePlayerAsync(RemovePlayerRequest request, BlazeRpcContext context)
     {
+        var sender = ServerManager.GetServerPlayerByConnectionId(context.Connection.ID);
         var serverGame = ServerManager.GetServerGame(request.mGameId);
+        var target = ServerManager.GetServerPlayerByUserId(request.mPlayerId);
+
+        if (serverGame == null && sender != null)
+        {
+            NotifyPlayerRemovedAsync(sender.BlazeServerConnection, new NotifyPlayerRemoved
+            {
+                mPlayerRemovedTitleContext = 0,
+                mGameId = request.mGameId,
+                mPlayerId = request.mPlayerId,
+                mPlayerRemovedReason = request.mPlayerRemovedReason
+            });
+        }
 
         if (serverGame == null) throw new BlazeRpcException(Blaze3RpcError.GAMEMANAGER_ERR_INVALID_GAME_ID);
 
-        await serverGame.RemoveGame();
+        serverGame.RemoveGameParticipant(target, request.mPlayerRemovedReason);
 
         UpdateGameLobbies();
         return new NullStruct();
@@ -312,7 +340,8 @@ internal class GameManager : GameManagerBase.Server
     public override async Task<CreateGameResponse> CreateGameAsync(CreateGameRequest request, BlazeRpcContext context)
     {
         var host = ServerManager.GetServerPlayerByConnectionId(context.Connection.ID);
-        var serverGame = await ServerGame.CreateAsync(host, request);
+        Enum.TryParse(Program.ZamboniConfig.ZamboniTopology, out ZamboniTopology zamboniTopology);
+        var serverGame = await ServerGame.CreateAsync(host, request, zamboniTopology);
 
         await serverGame.AddGameParticipant(host);
 
@@ -322,9 +351,8 @@ internal class GameManager : GameManagerBase.Server
             mGameId = serverGame.ReplicatedGameData.mGameId
         };
     }
-    // mFitScore = (uint)(serverGame.ReplicatedGameData.mPingSiteAlias == searcher.ExtendedData.mBestPingSiteAlias ? 10 : 1),
 
-    private static void UpdateGameLobbies()
+    public static void UpdateGameLobbies()
     {
         ServerManager.GetServerPlayers().Values.ToList().ForEach(sp => NotifyGameListUpdateAsync(sp.BlazeServerConnection, new NotifyGameListUpdate
         {
@@ -334,14 +362,13 @@ internal class GameManager : GameManagerBase.Server
             mUpdatedGames = GetLobbies(sp)
         }, true));
     }
-    
+
     private static List<GameBrowserMatchData> GetLobbies(ServerPlayer searcher)
     {
         var lobbies = new List<GameBrowserMatchData>();
         foreach (var serverGame in ServerManager.GetServerGames().Values)
         {
-            if (serverGame.ReplicatedGameData.mGameState != GameState.PRE_GAME &&
-                serverGame.ReplicatedGameData.mGameState != GameState.INITIALIZING) continue;
+            if (serverGame.ReplicatedGameData.mGameState != GameState.PRE_GAME && serverGame.ReplicatedGameData.mGameState != GameState.INITIALIZING) continue;
 
             if (!serverGame.HasSpaceForPlayer()) continue;
 
@@ -358,16 +385,6 @@ internal class GameManager : GameManagerBase.Server
                     mTeamIndex = gamePlayer.mTeamIndex
                 });
 
-            var teamInfo = new List<GameBrowserTeamInfo>();
-
-            // foreach (var teamCapacity in serverGame.ReplicatedGameData.mTeamCapacity)
-            // {
-            //     teamInfo.Add(new GameBrowserTeamInfo
-            //     {
-            //         mTeamId = teamCapacity.mTeamId,
-            //         mTeamSize = teamCapacity.mTeamCapacity
-            //     });
-            // }
             lobbies.Add(new GameBrowserMatchData
             {
                 mFitScore = (uint)(serverGame.ReplicatedGameData.mPingSiteAlias == searcher.ExtendedData.mBestPingSiteAlias ? 10 : 1),
@@ -375,32 +392,26 @@ internal class GameManager : GameManagerBase.Server
                 {
                     mAdminPlayerList = serverGame.ReplicatedGameData.mAdminPlayerList,
                     mEntryCriteriaMap = serverGame.ReplicatedGameData.mEntryCriteriaMap,
-                    mExternalSessionId = 1,
                     mGameAttribs = serverGame.ReplicatedGameData.mGameAttribs,
-                    mGameBrowserTeamInfoVector = teamInfo,
                     mGameId = serverGame.ReplicatedGameData.mGameId,
                     mGameName = serverGame.ReplicatedGameData.mGameName,
                     mGameProtocolVersionString = serverGame.ReplicatedGameData.mGameProtocolVersionString,
                     mGameRoster = participants,
                     mGameSettings = serverGame.ReplicatedGameData.mGameSettings,
                     mGameState = serverGame.ReplicatedGameData.mGameState,
-                    mHostId = serverGame.ReplicatedGameData.mTopologyHostInfo.mPlayerId,
+                    mHostId = serverGame.ReplicatedGameData.mPlatformHostInfo.mPlayerId,
                     mHostNetworkAddressList = serverGame.ReplicatedGameData.mHostNetworkAddressList,
                     mNetworkTopology = serverGame.ReplicatedGameData.mNetworkTopology,
                     mPersistedGameId = serverGame.ReplicatedGameData.mPersistedGameId,
                     mPingSiteAlias = serverGame.ReplicatedGameData.mPingSiteAlias,
                     mPlayerCounts = new List<ushort>
                     {
-                        0,0
+                        (ushort)serverGame.ReplicatedGamePlayers.Count
                     },
                     mPresenceMode = serverGame.ReplicatedGameData.mPresenceMode,
                     mQueueCapacity = serverGame.ReplicatedGameData.mQueueCapacity,
                     mQueueCount = serverGame.ReplicatedGameData.mQueueCapacity,
-                    mSlotCapacities = new List<ushort>
-                    {
-                        1,1
-                    },
-                    mTeamCapacity = 5,
+                    mSlotCapacities = serverGame.ReplicatedGameData.mSlotCapacities,
                     mVoipTopology = VoipTopology.VOIP_DISABLED
                 }
             });

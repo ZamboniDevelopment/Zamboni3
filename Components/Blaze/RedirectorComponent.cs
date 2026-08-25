@@ -16,7 +16,7 @@ internal class RedirectorComponent : RedirectorComponentBase.Server
                 {
                     mHostname = Program.GameServerIp,
                     mIp = Util.GetIPAddressAsUInt(Program.GameServerIp),
-                    mPort = Program.ZamboniConfig.GameServerPort
+                    mPort = Program.ZamboniConfig.CoreServerPort
                 }
             },
             mSecure = false,

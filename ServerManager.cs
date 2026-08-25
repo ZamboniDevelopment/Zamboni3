@@ -81,7 +81,7 @@ public static class ServerManager
     
     public static ServerPlayer? GetServerPlayerByUserId(long userId)
     {
-        return ServerPlayers[userId];
+        return ServerPlayers.GetValueOrDefault(userId);
     }
 
     public static ServerPlayer? GetServerPlayerByName(string name)

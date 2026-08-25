@@ -10,6 +10,7 @@ using YamlDotNet.Serialization.NamingConventions;
 using Zamboni14Legacy.Components.Blaze;
 using ZamboniCommonComponents;
 using ZamboniCommonComponents.Structs.TdfTagged;
+using ZamboniGameServerProvider;
 using ZamboniUltimateTeam;
 using LogLevel = NLog.LogLevel;
 
@@ -17,7 +18,7 @@ namespace Zamboni14Legacy;
 
 internal class Program
 {
-    public const string Name = "Zamboni14Legacy 1.1";
+    public const string Name = "Zamboni3 rolling";
     public const int RedirectorPort = 42127;
 
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
@@ -35,7 +36,7 @@ internal class Program
         InitConfig();
         StartLogger();
         InitDatabase();
-        GameServerIp = ZamboniConfig.GameServerIp.Equals("auto") ? PublicIp : ZamboniConfig.GameServerIp;
+        GameServerIp = ZamboniConfig.CoreServerIp.Equals("auto") ? PublicIp : ZamboniConfig.CoreServerIp;
 
         var tasks = new List<Task>();
 
@@ -43,7 +44,12 @@ internal class Program
         tasks.Add(StartCoreServer());
         tasks.Add(new Api().StartAsync());
         if (ZamboniConfig.HostRedirectorInstance) tasks.Add(StartRedirectorServer());
-        await RelayCommunicator.ResetAllInstances([ZamboniConfig.TargetProtocol]);
+        if (ZamboniConfig.StartLocalGameServerProvider)
+        {
+            var gameServerProvider = new GameServerProvider();
+            tasks.Add(gameServerProvider.Start());
+        }
+        await GameServerCommunicator.ResetAllInstances([ZamboniConfig.TargetProtocol]);
         Logger.Warn(Name + " started");
         await Task.WhenAll(tasks);
     }
@@ -62,8 +68,18 @@ internal class Program
 
     private static async Task StartRedirectorServer()
     {
-        var certBytes = File.ReadAllBytes("gosredirector_mod.pfx");
-        X509Certificate cert = new X509Certificate2(certBytes, "123456");
+        X509Certificate cert = null;
+        try
+        {
+            var certBytes = File.ReadAllBytes(ZamboniConfig.CertPath);
+            cert = new X509Certificate2(certBytes, ZamboniConfig.CertPassword);
+        }
+        catch (Exception e)
+        {
+            Logger.Warn(e);
+            Logger.Warn("Certificate failed to load, check config");
+            Logger.Info("https://github.com/Aim4kill/Bug_OldProtoSSL");
+        }
 
         var redirector = Blaze3.CreateBlazeServer("RedirectorServer", new IPEndPoint(IPAddress.Any, RedirectorPort), cert);
         redirector.AddComponent<RedirectorComponent>();
@@ -85,12 +101,14 @@ internal class Program
             ZamboniConfig = new ZamboniConfig();
             var yaml = serializer.Serialize(ZamboniConfig);
 
-            var comments = "# GameServerIp: 'auto' = automatically detect public IP or specify a manual IP address, where GameServer is run on\n" +
-                           "# GameServerPort: Port for GameServer to listen on. (Redirector server lives on " + RedirectorPort + ", clients request there)\n" +
+            var comments = "# CoreServerIp: 'auto' = automatically detect public IP or specify a manual IP address, where CoreServer is run on\n" +
+                           "# CoreServerPort: Port for CoreServer to listen on. (Redirector server lives on " + RedirectorPort + ", clients request there)\n" +
                            "# LogLevel: Valid values: Trace, Debug, Info, Warn, Error, Fatal, Off.\n" +
                            "# DatabaseConnectionString: Connection string to PostgreSQL, for saving data. (Not required)\n" +
                            "# HostRedirectorInstance: Whether this program should host a Redirector instance\n" +
-                           "# ApiServerIdentifier and ApiServerPort: identifier and port where status is\n\n";
+                           "# ApiServerIdentifier and ApiServerPort: identifier and port where status is\n" +
+                           "# ZamboniTopology: PeerHosted(Requires QoS program running), Relayed(Preferred?), (Dedicated, borked on h2h currently), used to determine topology used for h2h games. OTP Will always use Dedicated \n" +
+                           "# Config: Game specific string key value pairs inputted to client \n\n";
 
             File.WriteAllText(configFile, comments + yaml);
             Logger.Warn("Config file created: " + configFile);
@@ -110,7 +128,7 @@ internal class Program
     {
         var tdfFactory = new TdfFactory();
         var tdfDecoder = tdfFactory.CreateDecoder(true);
-        var config = new BlazeServerConfiguration("CoreServer", new IPEndPoint(IPAddress.Any, ZamboniConfig.GameServerPort), tdfFactory.CreateEncoder(true), tdfDecoder);
+        var config = new BlazeServerConfiguration("CoreServer", new IPEndPoint(IPAddress.Any, ZamboniConfig.CoreServerPort), tdfFactory.CreateEncoder(true), tdfDecoder);
         core = new ZamboniCoreServer(config);
 
         core.AddComponent<UtilComponent>();
@@ -145,6 +163,8 @@ internal class Program
         tdfFactory.RegisterTdfType(typeof(CustomPlayerReportVersusGame));
         tdfFactory.RegisterTdfType(typeof(ClubReportSoGame));
         tdfFactory.RegisterTdfType(typeof(CustomPlayerReportSoGame));
+        tdfFactory.RegisterTdfType(typeof(ClubReportOtpGame));
+        tdfFactory.RegisterTdfType(typeof(CustomPlayerReportOtpLeagueGame));
 
         await core.Start(-1).ConfigureAwait(false);
     }
@@ -168,7 +188,7 @@ internal class Program
                 case "status":
                     Logger.Info(Name);
                     Logger.Info("Server running on ip: " + GameServerIp + " (" + PublicIp + ")");
-                    Logger.Info("GameServerPort port: " + ZamboniConfig.GameServerPort);
+                    Logger.Info("GameServerPort port: " + ZamboniConfig.CoreServerPort);
                     Logger.Info("Redirector port: " + RedirectorPort);
                     Logger.Info("Online Players: " + ServerManager.GetServerPlayers().Count);
                     foreach (var serverPlayer in ServerManager.GetServerPlayers().Values)

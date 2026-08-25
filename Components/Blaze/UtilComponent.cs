@@ -9,13 +9,13 @@ internal class UtilComponent : UtilComponentBase.Server
 {
     public override Task<PreAuthResponse> PreAuthAsync(PreAuthRequest request, BlazeRpcContext context)
     {
-        var pingSitesConfig = Program.ZamboniConfig.Relays;
+        var pingSitesConfig = Program.ZamboniConfig.GameServerProviders;
         var responsePingSites = new SortedDictionary<string, QosPingSiteInfo>();
         foreach (var configSection in pingSitesConfig)
         {
             responsePingSites.Add(configSection.Key, new QosPingSiteInfo
             {
-                mAddress = configSection.Value.Ip,
+                mAddress = configSection.Value.ResolveIp(),
                 mPort = configSection.Value.PingSitePort,
                 mSiteName = configSection.Key
             });

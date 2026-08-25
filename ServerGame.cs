@@ -4,6 +4,7 @@ using Blaze3SDK.Blaze;
 using Blaze3SDK.Blaze.GameManager;
 using Blaze3SDK.Components;
 using Zamboni14Legacy.Components.Blaze;
+using ZProtocol;
 
 namespace Zamboni14Legacy;
 
@@ -12,89 +13,95 @@ public class ServerGame
     public ConcurrentDictionary<long, ServerPlayer> ServerPlayers { get; } = new();
     public ReplicatedGameData ReplicatedGameData { get; set; }
     public ConcurrentDictionary<long, ReplicatedGamePlayer> ReplicatedGamePlayers { get; set; } = new();
-    private bool relayed;
+    private ZamboniTopology ZamboniTopology { get; set; }
 
-    public static async Task<ServerGame> CreateAsync(ServerPlayer creator, CreateGameRequest request)
+    public static async Task<ServerGame> CreateAsync(ServerPlayer creator, CreateGameRequest request, ZamboniTopology zamboniTopology)
     {
-        var game = new ServerGame(creator, request);
-        return await ContactRelay(game, creator);
-    }
+        var game = new ServerGame(creator, request, zamboniTopology);
+        if (zamboniTopology == ZamboniTopology.PeerHosted) return game;
 
-    public static async Task<ServerGame> CreateAsync(ServerPlayer creator, StartMatchmakingRequest request)
-    {
-        var game = new ServerGame(creator, request);
-        return await ContactRelay(game, creator);
-    }
+        var reserveResponse = await GameServerCommunicator.ReserveInstance(creator, new ReserveInstanceCommand(new ReserveRequest(game.ReplicatedGameData.mGameId, Guid.Parse(game.ReplicatedGameData.mUUID), zamboniTopology, request.mGameProtocolVersionString, request.mSlotCapacities[0] + request.mSlotCapacities[1])));
 
-    private static async Task<ServerGame> ContactRelay(ServerGame game, ServerPlayer creator)
-    {
-        if (!Program.ZamboniConfig.UseRelayServerImplementation) return game;
-
-        var relay = await RelayCommunicator.ReserveRelayInstance(creator, game.ReplicatedGameData.mGameProtocolVersionString);
-        if (relay.Port == 0) return game;
-        game.relayed = true;
-        game.ReplicatedGameData.mHostNetworkAddressList.Add(new NetworkAddress
+        var updated = game.ReplicatedGameData;
+        if (reserveResponse is not null)
         {
-            IpAddress = new IpAddress { mIp = relay.Ip, mPort = relay.Port }
-        });
+            updated.mHostNetworkAddressList = new List<NetworkAddress>
+            {
+                new NetworkAddress
+                {
+                    IpAddress = new IpAddress
+                    {
+                        mIp = Util.GetIPAddressAsUInt(reserveResponse.GameInstanceInfo.Host),
+                        mPort = reserveResponse.GameInstanceInfo.Port
+                    },
+                }
+            };
+
+            if (zamboniTopology == ZamboniTopology.Dedicated)
+            {
+                updated.mAdminPlayerList = new List<long>
+                {
+                    123, creator.UserIdentification.mBlazeId
+                };
+                updated.mTopologyHostInfo = new HostInfo
+                {
+                    mPlayerId = 123,
+                    mSlotId = 0
+                };
+                updated.mTopologyHostSessionId = 123;
+                updated.mGameState = GameState.PRE_GAME;
+            }
+        }
+        else
+        {
+            game.ZamboniTopology = ZamboniTopology.PeerHosted;
+        }
+
+        game.ReplicatedGameData = updated;
         return game;
     }
 
-    private ServerGame(ServerPlayer host, StartMatchmakingRequest request)
+    public static async Task<ServerGame> CreateAsync(ServerPlayer creator, StartMatchmakingRequest request, ZamboniTopology zamboniTopology)
     {
-        var gameId = Program.Database.GetNextGameId();
-
-        ReplicatedGameData = new ReplicatedGameData
+        return await CreateAsync(creator, new CreateGameRequest
         {
-            mAdminPlayerList = new List<long>
-            {
-                host.UserIdentification.mAccountId
-            },
-            mGameAttribs = ToStringDictionary(request.mCriteriaData),
-            mSlotCapacities = new List<ushort>
-            {
-                0, request.mCriteriaData.mGameSizeRulePrefs.mMaxPlayerCapacity
-            },
             mEntryCriteriaMap = request.mEntryCriteriaMap,
-            mGameId = gameId,
-            mGameName = "game" + gameId,
-            mGameSettings = request.mGameSettings,
-            mGameReportingId = gameId,
-            mGameState = GameState.INITIALIZING,
-            mHostNetworkAddressList = new List<NetworkAddress>(),
-            mTopologyHostSessionId = (uint)host.UserIdentification.mAccountId,
-            mIgnoreEntryCriteriaWithInvite = true,
-            mMeshAttribs = new SortedDictionary<string, string>(),
-            mMaxPlayerCapacity = request.mCriteriaData.mGameSizeRulePrefs.mMaxPlayerCapacity,
-            mNetworkQosData = host.ExtendedData.mQosData,
-            mNetworkTopology = Program.ZamboniConfig.TopologyOverride < 0 ? request.mNetworkTopology : (GameNetworkTopology)Program.ZamboniConfig.TopologyOverride,
-            mPlatformHostInfo = new HostInfo
-            {
-                mPlayerId = host.UserIdentification.mAccountId,
-                mSlotId = 0
-            },
-            mPingSiteAlias = host.ExtendedData.mBestPingSiteAlias,
-            mQueueCapacity = 0,
-            mTopologyHostInfo = new HostInfo
-            {
-                mPlayerId = host.UserIdentification.mAccountId,
-                mSlotId = 0
-            },
-            mUUID = "game" + gameId,
-            mVoipNetwork = VoipTopology.VOIP_DISABLED,
+            mGameAttribs = ToStringDictionary(request.mCriteriaData),
+            mGameEntryType = request.mGameEntryType,
             mGameProtocolVersionString = request.mGameProtocolVersionString,
-            mXnetNonce = new byte[]
+            mGameSettings = request.mGameSettings,
+            mHostNetworkAddressList = new List<NetworkAddress>(),
+            mIgnoreEntryCriteriaWithInvite = request.mIgnoreEntryCriteriaWithInvite,
+            mJoiningSlotType = SlotType.SLOT_PUBLIC,
+            mMaxPlayerCapacity = request.mMaxPlayerCapacity,
+            mMeshAttribs = new SortedDictionary<string, string>(),
+            mNetworkTopology = ToBlazeNetworkTopology(zamboniTopology),
+            mPresenceMode = PresenceMode.PRESENCE_MODE_STANDARD,
+            mQueueCapacity = 0,
+            mSlotCapacities = new List<ushort>()
             {
+                0, 2
             },
-            mSharedSeed = (uint)gameId,
-            mXnetSession = new byte[]
-            {
-            }
-        };
-        ServerManager.AddServerGame(gameId, this);
+            mVoipNetwork = VoipTopology.VOIP_DISABLED
+        }, zamboniTopology);
     }
 
-    private ServerGame(ServerPlayer host, CreateGameRequest request)
+
+    private static GameNetworkTopology ToBlazeNetworkTopology(ZamboniTopology zamboniTopology)
+    {
+        switch (zamboniTopology)
+        {
+            case ZamboniTopology.PeerHosted:
+            case ZamboniTopology.Relayed:
+                return GameNetworkTopology.CLIENT_SERVER_PEER_HOSTED;
+            case ZamboniTopology.Dedicated:
+                return GameNetworkTopology.CLIENT_SERVER_DEDICATED;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(zamboniTopology), zamboniTopology, null);
+        }
+    }
+
+    private ServerGame(ServerPlayer host, CreateGameRequest request, ZamboniTopology zamboniTopology)
     {
         var gameId = Program.Database.GetNextGameId();
 
@@ -114,51 +121,41 @@ public class ServerGame
             mGameSettings = request.mGameSettings,
             mGameState = GameState.INITIALIZING,
             mGameTypeName = request.mGameTypeName,
-            mHostNetworkAddressList = new List<NetworkAddress>
-            {
-                // host.ExtendedData.mAddress
-            },
+            mHostNetworkAddressList = new List<NetworkAddress>(),
             mIgnoreEntryCriteriaWithInvite = request.mIgnoreEntryCriteriaWithInvite,
-            mMaxPlayerCapacity = 3,
+            mMaxPlayerCapacity = (ushort)(request.mSlotCapacities[0] + request.mSlotCapacities[1]),
             mMeshAttribs = request.mMeshAttribs,
             mNetworkQosData = host.ExtendedData.mQosData,
-            mNetworkTopology = Program.ZamboniConfig.TopologyOverride < 0 ? request.mNetworkTopology : (GameNetworkTopology)Program.ZamboniConfig.TopologyOverride,
-            mPersistedGameId = gameId.ToString(),
-            mPersistedGameIdSecret = request.mPersistedGameIdSecret,
+            mNetworkTopology = ToBlazeNetworkTopology(zamboniTopology),
             mPingSiteAlias = host.ExtendedData.mBestPingSiteAlias,
             mPlatformHostInfo = new HostInfo
             {
-                mPlayerId = host.UserIdentification.mAccountId,
-                mSlotId = 0
+                mPlayerId = host.UserIdentification.mBlazeId,
+                mSlotId = 1
             },
-            mTopologyHostSessionId = (uint)host.UserIdentification.mAccountId,
             mPresenceMode = request.mPresenceMode,
             mQueueCapacity = 3,
             mServerNotResetable = request.mServerNotResetable,
             mSharedSeed = (uint)gameId,
-            mSlotCapacities = new List<ushort>
-            {
-                3, 0
-            },
-            mTeamCapacity = 65535,
-            mTeamIds = new List<ushort>
-            {
-                65535, 65535
-            },
+            mSlotCapacities = request.mSlotCapacities,
+            mTeamCapacity = default,
+            mTeamIds = request.mTeamIds,
             mTopologyHostInfo = new HostInfo
             {
                 mPlayerId = host.UserIdentification.mAccountId,
-                mSlotId = 0
+                mSlotId = 1
             },
-            mUUID = gameId.ToString(),
+            mTopologyHostSessionId = (ulong)host.UserIdentification.mAccountId,
+            mUUID = Guid.NewGuid().ToString(),
             mVoipNetwork = VoipTopology.VOIP_DISABLED,
             mXnetNonce = new byte[]
             {
             },
             mXnetSession = new byte[]
             {
-            }
+            },
         };
+        ZamboniTopology = zamboniTopology;
         ServerManager.AddServerGame(gameId, this);
     }
 
@@ -166,27 +163,31 @@ public class ServerGame
     {
         ServerPlayers.TryAdd(serverPlayer.UserIdentification.mAccountId, serverPlayer);
         ReplicatedGamePlayer replicatedGamePlayer;
-        if (relayed)
+        switch (ZamboniTopology)
         {
-            await RelayCommunicator.AllowFrom(Util.GetUIntAsIPAddress(ReplicatedGameData.mHostNetworkAddressList[0].IpAddress.Value.mIp), ReplicatedGameData.mHostNetworkAddressList[0].IpAddress.Value.mPort, Util.GetUIntAsIPAddress(serverPlayer.ExtendedData.mAddress.IpPairAddress.Value.mExternalAddress.mIp));
-            replicatedGamePlayer = serverPlayer.ToReplicatedGamePlayer((byte)(ServerPlayers.Count - 1), ReplicatedGameData.mGameId, new NetworkAddress
-            {
-                IpAddress = new IpAddress
+            case ZamboniTopology.PeerHosted:
+                replicatedGamePlayer = serverPlayer.ToReplicatedGamePlayer((byte)ServerPlayers.Count, ReplicatedGameData.mGameId, false);
+                break;
+            case ZamboniTopology.Relayed:
+                replicatedGamePlayer = serverPlayer.ToReplicatedGamePlayer((byte)ServerPlayers.Count, ReplicatedGameData.mGameId, false, new NetworkAddress
                 {
-                    mIp = ReplicatedGameData.mHostNetworkAddressList[0].IpAddress.Value.mIp,
-                    mPort = ReplicatedGameData.mHostNetworkAddressList[0].IpAddress.Value.mPort
-                    // mInternalAddress = serverPlayer.ExtendedData.mAddress.IpPairAddress.Value.mInternalAddress
-                },
-            });
-        }
-        else
-        {
-            replicatedGamePlayer = serverPlayer.ToReplicatedGamePlayer((byte)(ServerPlayers.Count - 1), ReplicatedGameData.mGameId);
+                    IpAddress = new IpAddress
+                    {
+                        mIp = ReplicatedGameData.mHostNetworkAddressList[0].IpAddress.Value.mIp,
+                        mPort = ReplicatedGameData.mHostNetworkAddressList[0].IpAddress.Value.mPort,
+                    },
+                });
+                break;
+            case ZamboniTopology.Dedicated:
+                replicatedGamePlayer = serverPlayer.ToReplicatedGamePlayer((byte)ServerPlayers.Count, ReplicatedGameData.mGameId, true);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
 
         ReplicatedGamePlayers.TryAdd(serverPlayer.UserIdentification.mAccountId, replicatedGamePlayer);
 
-        if (ServerPlayers.Count == 1)
+        if (ZamboniTopology == ZamboniTopology.Dedicated && ServerPlayers.Count == 1)
         {
             GameManagerBase.Server.NotifyGameSetupAsync(serverPlayer.BlazeServerConnection, new NotifyGameSetup
             {
@@ -194,19 +195,8 @@ public class ServerGame
                 mGameRoster = ReplicatedGamePlayers.Values.ToList(),
                 mGameSetupReason = new GameSetupReason
                 {
-                    MatchmakingSetupContext = new MatchmakingSetupContext
-                    {
-                        mFitScore = 10,
-                        mMatchmakingResult = MatchmakingResult.SUCCESS_CREATED_GAME,
-                        mMaxPossibleFitScore = 10,
-                        mSessionId = matchmakingSessionId,
-                        mUserSessionId = 0
-                    }
+                    ResetDedicatedServerSetupContext = new ResetDedicatedServerSetupContext(),
                 }
-            }, true);
-            GameManagerBase.Server.NotifySelectedAsHostAsync(serverPlayer.BlazeServerConnection, new NotifySelectedAsHost
-            {
-                mGameId = (uint)ReplicatedGameData.mGameId
             }, true);
         }
         else
@@ -229,7 +219,7 @@ public class ServerGame
             }, true);
         }
 
-        ServerPlayers.Values.ToList().ForEach(participant => GameManagerBase.Server.NotifyPlayerJoiningAsync(participant.BlazeServerConnection, new NotifyPlayerJoining
+        ServerPlayers.Values.ToList().Where(par => par.UserIdentification.mAccountId != serverPlayer.UserIdentification.mAccountId).ToList().ForEach(participant => GameManagerBase.Server.NotifyPlayerJoiningAsync(participant.BlazeServerConnection, new NotifyPlayerJoining
         {
             mGameId = ReplicatedGameData.mGameId,
             mJoiningPlayer = replicatedGamePlayer
@@ -241,21 +231,31 @@ public class ServerGame
         return ReplicatedGameData.mSlotCapacities.Sum(x => x) > ReplicatedGamePlayers.Count;
     }
 
-    public void RemoveGameParticipant(ServerPlayer serverPlayer, PlayerRemovedReason reason)
+    public void RemoveGameParticipant(ServerPlayer leaver, PlayerRemovedReason reason)
     {
-        ServerPlayers.TryRemove(serverPlayer.UserIdentification.mAccountId, out _);
-        ReplicatedGamePlayers.Remove(serverPlayer.UserIdentification.mAccountId, out _);
-
         ServerPlayers.Values.ToList().ForEach(participant => GameManagerBase.Server.NotifyPlayerRemovedAsync(participant.BlazeServerConnection, new NotifyPlayerRemoved
         {
             mPlayerRemovedTitleContext = 0,
             mGameId = ReplicatedGameData.mGameId,
-            mPlayerId = serverPlayer.UserIdentification.mBlazeId,
+            mPlayerId = leaver.UserIdentification.mBlazeId,
             mPlayerRemovedReason = reason
         }));
+
+        ServerPlayers.TryRemove(leaver.UserIdentification.mAccountId, out _);
+        ReplicatedGamePlayers.Remove(leaver.UserIdentification.mAccountId, out _);
+
+        if (ZamboniTopology == ZamboniTopology.Dedicated && ReplicatedGameData.mGameState == GameState.IN_GAME && !ServerPlayers.IsEmpty)
+        {
+            return;
+        }
+
+        if (ServerPlayers.IsEmpty || leaver.UserIdentification.mBlazeId == ReplicatedGameData.mPlatformHostInfo.mPlayerId)
+        {
+            RemoveGame();
+        }
     }
 
-    public async Task RemoveGame()
+    private void RemoveGame()
     {
         GameManager.StaleGames.Enqueue(ReplicatedGameData.mGameId);
 
@@ -264,10 +264,13 @@ public class ServerGame
             GameManager.StaleGames.TryDequeue(out _);
         }
 
-        if (relayed)
+        _ = GameServerCommunicator.DestroyInstance(this);
+
+        ServerPlayers.Values.ToList().ForEach(participant => GameManagerBase.Server.NotifyGameRemovedAsync(participant.BlazeServerConnection, new NotifyGameRemoved()
         {
-            await RelayCommunicator.DestroyRelayInstance(this);
-        }
+            mGameId = ReplicatedGameData.mGameId,
+            mDestructionReason = GameDestructionReason.SYS_GAME_ENDING
+        }));
 
         ServerPlayers.Values.ToList().ForEach(participant => GameManagerBase.Server.NotifyPlayerRemovedAsync(participant.BlazeServerConnection, new NotifyPlayerRemoved
         {
@@ -275,12 +278,8 @@ public class ServerGame
             mPlayerId = participant.UserIdentification.mBlazeId,
             mPlayerRemovedReason = PlayerRemovedReason.GAME_DESTROYED,
             mPlayerRemovedTitleContext = 0
-        }, true));
-        ServerPlayers.Values.ToList().ForEach(participant => GameManagerBase.Server.NotifyGameRemovedAsync(participant.BlazeServerConnection, new NotifyGameRemoved()
-        {
-            mGameId = ReplicatedGameData.mGameId,
-            mDestructionReason = GameDestructionReason.SYS_GAME_ENDING
-        }, true));
+        }));
+
         ServerManager.RemoveServerGame(ReplicatedGameData.mGameId);
     }
 
@@ -313,6 +312,6 @@ public class ServerGame
                " gameId:" + ReplicatedGameData.mGameId +
                " state: " + ReplicatedGameData.mGameState +
                " OSDK_gameMode: " + ReplicatedGameData.mGameAttribs["OSDK_gameMode"] +
-               " Relayed: " + relayed;
+               " ZamboniTopology: " + ZamboniTopology;
     }
 }

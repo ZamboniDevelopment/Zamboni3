@@ -8,20 +8,18 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
-      <PackageReference Include="HashLib" Version="2.0.1" />
-      <PackageReference Include="NLog" Version="6.0.6" />
+      <PackageReference Include="NLog" Version="6.2.0" />
       <PackageReference Include="Npgsql" Version="10.0.2" />
       <PackageReference Include="ReadLine" Version="2.0.1" />
-      <PackageReference Include="YamlDotNet" Version="16.3.0" />
+      <PackageReference Include="YamlDotNet" Version="18.1.0" />
     </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\BlazeSDK\Blaze3SDK\Blaze3SDK.csproj" />
       <ProjectReference Include="..\BlazeSDK\Tdf\Tdf.csproj" />
       <ProjectReference Include="..\PSN\SceNetNp\SceNetNp.csproj" />
-      <ProjectReference Include="..\RelayProtocol\RelayProtocol.csproj" />
       <ProjectReference Include="..\ZamboniCommonComponents\ZamboniCommonComponents.csproj" />
+      <ProjectReference Include="..\ZamboniGameServerProvider\ZamboniGameServerProvider.csproj" />
       <ProjectReference Include="..\ZamboniUltimateTeam\ZamboniUltimateTeam.csproj" />
     </ItemGroup>
 

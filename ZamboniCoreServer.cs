@@ -1,3 +1,4 @@
+using Blaze3SDK.Blaze.GameManager;
 using BlazeCommon;
 
 namespace Zamboni14Legacy;
@@ -14,7 +15,7 @@ public class ZamboniCoreServer(BlazeServerConfiguration settings) : BlazeServer(
         if (queuedPlayer != null) ServerManager.RemoveQueuedPlayerByUserId(queuedPlayer.ServerPlayer.UserIdentification.mAccountId);
 
         var serverGame = ServerManager.GetServerGame(serverPlayer);
-        if (serverGame != null) _ = serverGame.RemoveGame();
+        if (serverGame != null) serverGame.RemoveGameParticipant(serverPlayer, PlayerRemovedReason.BLAZESERVER_CONN_LOST);
 
         return base.OnProtoFireDisconnectAsync(connection);
     }
