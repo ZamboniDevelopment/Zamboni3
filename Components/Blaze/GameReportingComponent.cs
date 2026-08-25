@@ -6,9 +6,25 @@ namespace Zamboni14Legacy.Components.Blaze;
 
 internal class GameReportingComponent : GameReportingComponentBase.Server
 {
+    private static readonly SemaphoreSlim ReportInsertLock = new(1, 1);
+
     public override async Task<NullStruct> SubmitGameReportAsync(SubmitGameReportRequest request, BlazeRpcContext context)
     {
-        if (Program.Database.isEnabled) await Database.InsertReport(request);
+        var reporterUserId = ServerManager.GetServerPlayerByConnectionId(context.Connection.ID)!.UserIdentification.mAccountId;
+
+        if (Program.Database.isEnabled)
+        {
+            await ReportInsertLock.WaitAsync();
+            try
+            {
+                await Program.Database.InsertReport(request, (ulong)reporterUserId);
+            }
+            finally
+            {
+                ReportInsertLock.Release();
+            }
+        }
+
         NotifyResultNotificationAsync(context.BlazeConnection, new ResultNotification
         {
             mBlazeError = 0,
