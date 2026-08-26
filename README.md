@@ -1,4 +1,4 @@
-## Custom server for NHL 14 and Legacy
+## Custom server for NHL 11 - Legacy
 
 - Community Discord: https://discord.com/invite/dsAz2g9S8v
 - RPCS3 Wiki: https://wiki.rpcs3.net/index.php?title=NHL_14
