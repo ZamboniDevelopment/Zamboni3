@@ -8,7 +8,7 @@ using Tdf;
 using ZamboniCommonComponents.Structs.TdfTagged;
 using GameReport = Blaze3SDK.Blaze.GameReportingLegacy.GameReport;
 
-namespace Zamboni14Legacy;
+namespace Zamboni3;
 
 public class Database
 {

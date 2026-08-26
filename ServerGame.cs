@@ -3,10 +3,10 @@ using System.Text;
 using Blaze3SDK.Blaze;
 using Blaze3SDK.Blaze.GameManager;
 using Blaze3SDK.Components;
-using Zamboni14Legacy.Components.Blaze;
+using Zamboni3.Components.Blaze;
 using ZProtocol;
 
-namespace Zamboni14Legacy;
+namespace Zamboni3;
 
 public class ServerGame
 {

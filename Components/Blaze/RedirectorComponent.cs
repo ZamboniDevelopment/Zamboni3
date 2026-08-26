@@ -2,7 +2,7 @@ using Blaze3SDK.Blaze.Redirector;
 using Blaze3SDK.Components;
 using BlazeCommon;
 
-namespace Zamboni14Legacy.Components.Blaze;
+namespace Zamboni3.Components.Blaze;
 
 internal class RedirectorComponent : RedirectorComponentBase.Server
 {

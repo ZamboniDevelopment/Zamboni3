@@ -3,7 +3,7 @@ using Blaze3SDK.Blaze.Util;
 using Blaze3SDK.Components;
 using BlazeCommon;
 
-namespace Zamboni14Legacy.Components.Blaze;
+namespace Zamboni3.Components.Blaze;
 
 internal class UtilComponent : UtilComponentBase.Server
 {

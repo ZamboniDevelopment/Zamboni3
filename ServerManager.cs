@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using Blaze3SDK.Blaze;
 using Blaze3SDK.Components;
 
-namespace Zamboni14Legacy;
+namespace Zamboni3;
 
 public static class ServerManager
 {

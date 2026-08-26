@@ -1,4 +1,4 @@
-namespace Zamboni14Legacy;
+namespace Zamboni3;
 
 public class PlayerProfile
 {

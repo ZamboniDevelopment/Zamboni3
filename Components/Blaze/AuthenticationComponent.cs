@@ -7,7 +7,7 @@ using BlazeCommon;
 using SceNetNp;
 using Tdf;
 
-namespace Zamboni14Legacy.Components.Blaze;
+namespace Zamboni3.Components.Blaze;
 
 internal class AuthenticationComponent : AuthenticationComponentBase.Server
 {

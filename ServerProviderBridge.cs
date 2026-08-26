@@ -1,6 +1,6 @@
 using ZamboniUltimateTeam;
 
-namespace Zamboni14Legacy;
+namespace Zamboni3;
 
 public class ServerProviderBridge : IServerProvider
 {

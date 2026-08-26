@@ -3,7 +3,7 @@ using NLog;
 using ZProtocol;
 using Protocol = ZProtocol.ZProtocol;
 
-namespace Zamboni14Legacy;
+namespace Zamboni3;
 
 public static class GameServerCommunicator
 {

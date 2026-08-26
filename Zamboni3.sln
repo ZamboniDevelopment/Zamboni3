@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zamboni14Legacy", "Zamboni14Legacy.csproj", "{D76619E2-7221-4CE0-99EF-FAAA5F0FCF24}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zamboni3", "Zamboni3.csproj", "{D76619E2-7221-4CE0-99EF-FAAA5F0FCF24}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Blaze3SDK", "..\BlazeSDK\Blaze3SDK\Blaze3SDK.csproj", "{C21037C4-C408-4AEF-AFF1-A8B83BAA9D4F}"
 EndProject

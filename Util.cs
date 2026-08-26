@@ -1,6 +1,6 @@
 using System.Net;
 
-namespace Zamboni14Legacy;
+namespace Zamboni3;
 
 public static class Util
 {

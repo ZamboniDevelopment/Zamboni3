@@ -7,14 +7,14 @@ using NLog.Layouts;
 using Tdf;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
-using Zamboni14Legacy.Components.Blaze;
+using Zamboni3.Components.Blaze;
 using ZamboniCommonComponents;
 using ZamboniCommonComponents.Structs.TdfTagged;
 using ZamboniGameServerProvider;
 using ZamboniUltimateTeam;
 using LogLevel = NLog.LogLevel;
 
-namespace Zamboni14Legacy;
+namespace Zamboni3;
 
 internal class Program
 {
