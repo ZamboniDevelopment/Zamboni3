@@ -313,7 +313,8 @@ public class Database
     {
         var query = "";
         var column = ToColumn(tag);
-        EnsureColumn(conn, table, column, value?.ToString() ?? "");
+        var mapped = MapType(value);
+        EnsureColumn(conn, table, column, mapped);
 
         if (table.Equals("games"))
             query = $@"
@@ -339,7 +340,7 @@ public class Database
         await using var cmd = new NpgsqlCommand(query, conn);
         cmd.Parameters.AddWithValue("game_id", game_id);
         if (user_id.HasValue) cmd.Parameters.AddWithValue("user_id", (decimal)user_id.Value);
-        cmd.Parameters.AddWithValue("value", MapType(value));
+        cmd.Parameters.AddWithValue("value", mapped);
 
         cmd.ExecuteNonQuery();
     }
@@ -388,6 +389,13 @@ public class Database
             _ => val ?? DBNull.Value
         };
     }
+    
+    private static object ParseLegacy(string raw)
+    {
+        if (long.TryParse(raw, out var l)) return l;
+        if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var d)) return d;
+        return raw;
+    }
 
     private static readonly List<(ulong GameId, ulong PlayerToBeReported, ulong Reporter)> WhoReportedTuple = new();
 
@@ -416,7 +424,7 @@ public class Database
         {
             var column = ToColumn(key);
             var raw = gameAttributeMap[key];
-            EnsureColumn(conn, "games_l", column, raw);
+            EnsureColumn(conn, "games_l", column, ParseLegacy(raw));
             var insertGameAttributeQuery = $@"
                 INSERT INTO games_l (game_id, {column})
                     VALUES (@game_id, @value)
@@ -426,12 +434,7 @@ public class Database
             await using var cmd1 = new NpgsqlCommand(insertGameAttributeQuery, conn);
             cmd1.Parameters.AddWithValue("game_id", (decimal)report.mGameReportingId);
 
-            if (long.TryParse(raw, out var longValue))
-                cmd1.Parameters.AddWithValue("value", longValue);
-            else if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var dblValue))
-                cmd1.Parameters.AddWithValue("value", dblValue);
-            else
-                cmd1.Parameters.AddWithValue("value", raw);
+            cmd1.Parameters.AddWithValue("value", ParseLegacy(raw));
 
             await cmd1.ExecuteNonQueryAsync();
         }
@@ -477,7 +480,7 @@ public class Database
             foreach (var key in mPlayerReportMap[pl].mAttributeMap.Keys)
             {
                 var column = ToColumn(key);
-                EnsureColumn(conn, tableName, column, mPlayerReportMap[pl].mAttributeMap[key]);
+                EnsureColumn(conn, tableName, column, ParseLegacy(mPlayerReportMap[pl].mAttributeMap[key]));
                 var insertPlayerAttributeQuery = $@"
                     INSERT INTO {tableName} (game_id, user_id, {column})
                         VALUES (@game_id, @user_id, @value)
@@ -488,10 +491,7 @@ public class Database
                 cmd1.Parameters.AddWithValue("game_id", (long)report.mGameReportingId);
                 cmd1.Parameters.AddWithValue("user_id", pl);
 
-                if (int.TryParse(mPlayerReportMap[pl].mAttributeMap[key], out var intValue))
-                    cmd1.Parameters.AddWithValue("value", intValue);
-                else
-                    cmd1.Parameters.AddWithValue("value", mPlayerReportMap[pl].mAttributeMap[key]);
+                cmd1.Parameters.AddWithValue("value", ParseLegacy(mPlayerReportMap[pl].mAttributeMap[key]));
                 await cmd1.ExecuteNonQueryAsync();
             }
 
@@ -508,14 +508,14 @@ public class Database
 
     private static string InferType(object? val) => val switch
     {
-        ulong => "NUMERIC(20,0)",
+        ulong or decimal => "NUMERIC(20,0)",
         uint or long or int or ushort or short => "BIGINT",
         double or float => "DOUBLE PRECISION",
         bool => "BOOLEAN",
         _ => "TEXT",
     };
 
-    private static void EnsureColumn(NpgsqlConnection conn, string table, string column, string sampleValue)
+    private static void EnsureColumn(NpgsqlConnection conn, string table, string column, object? sampleValue)
     {
         if (!_knownColumns.TryGetValue(table, out var cols))
         {
