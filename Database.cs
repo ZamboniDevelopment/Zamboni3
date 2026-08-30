@@ -50,6 +50,8 @@ public class Database
         CreateLegacyOtpReportTable();
         CreateLegacySoReportTable();
         CreateLegacyHutReportTable();
+
+        CreateUserSettingsTable();
     }
 
     private void CreateGameIdSequence()
@@ -240,6 +242,83 @@ public class Database
         cmd.ExecuteNonQuery();
     }
 
+    private void CreateUserSettingsTable()
+    {
+        using var conn = new NpgsqlConnection(ConnectionString);
+        conn.Open();
+
+        const string createTableQuery = @"
+            CREATE TABLE IF NOT EXISTS user_settings (
+                user_id BIGINT NOT NULL,
+                config_key TEXT NOT NULL,
+                config_value TEXT NOT NULL,
+                PRIMARY KEY (user_id, config_key)
+            );";
+
+        using var cmd = new NpgsqlCommand(createTableQuery, conn);
+        cmd.ExecuteNonQuery();
+    }
+
+    public static async Task<SortedDictionary<string, string>> GetAllUserSettings(long userId)
+    {
+        var settings = new SortedDictionary<string, string>();
+
+        await using var conn = new NpgsqlConnection(ConnectionString);
+        await conn.OpenAsync();
+
+        const string sql = "SELECT config_key, config_value FROM user_settings WHERE user_id = @userId;";
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@userId", userId);
+        await using var reader = await cmd.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            settings.Add(reader.GetString(0), reader.GetString(1));
+        }
+
+        return settings;
+    }
+
+    public static async Task<string> GetUserSetting(long userId, string configKey)
+    {
+        await using var conn = new NpgsqlConnection(ConnectionString);
+        await conn.OpenAsync();
+
+        const string sql = "SELECT config_value FROM user_settings WHERE user_id = @userId AND config_key = @configKey;";
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@userId", userId);
+        cmd.Parameters.AddWithValue("@configKey", configKey);
+        await using var reader = await cmd.ExecuteReaderAsync();
+
+        if (await reader.ReadAsync())
+        {
+            return reader.GetString(0);
+        }
+
+        return "";
+    }
+
+    public static async Task SetUserSetting(long userId, string configKey, string configValue)
+    {
+        await using var conn = new NpgsqlConnection(ConnectionString);
+        await conn.OpenAsync();
+
+        const string sql = @"
+        INSERT INTO user_settings (user_id, config_key, config_value)
+        VALUES (@user_id, @config_key, @config_value)
+        ON CONFLICT (user_id, config_key) 
+        DO UPDATE SET config_value = EXCLUDED.config_value;";
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@user_id", userId);
+        cmd.Parameters.AddWithValue("@config_key", configKey);
+        cmd.Parameters.AddWithValue("@config_value", configValue);
+
+        await cmd.ExecuteNonQueryAsync();
+    }
+
     public async Task InsertReport(SubmitGameReportRequest request, ulong reporterUserId)
     {
         await InsertGameData(request);
@@ -389,7 +468,7 @@ public class Database
             _ => val ?? DBNull.Value
         };
     }
-    
+
     private static object ParseLegacy(string raw)
     {
         if (long.TryParse(raw, out var l)) return l;

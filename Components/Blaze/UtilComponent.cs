@@ -105,30 +105,36 @@ internal class UtilComponent : UtilComponentBase.Server
         return Task.FromResult(GetTele());
     }
 
-    public override Task<UserSettingsLoadAllResponse> UserSettingsLoadAllAsync(UserSettingsLoadAllRequest request, BlazeRpcContext context)
+    public override async Task<UserSettingsLoadAllResponse> UserSettingsLoadAllAsync(UserSettingsLoadAllRequest request, BlazeRpcContext context)
     {
+        if (!Program.Database.isEnabled) return new UserSettingsLoadAllResponse();
         var serverPlayer = ServerManager.GetServerPlayerByConnectionId(context.Connection.ID)!;
-        return Task.FromResult(new UserSettingsLoadAllResponse
+        var settings = await Database.GetAllUserSettings(serverPlayer.UserIdentification.mAccountId);
+        return new UserSettingsLoadAllResponse
         {
-            mDataMap = new SortedDictionary<string, string>(serverPlayer.UserSettings)
-        });
+            mDataMap = settings
+        };
     }
 
-    public override Task<UserSettingsResponse> UserSettingsLoadAsync(UserSettingsLoadRequest request, BlazeRpcContext context)
+    public override async Task<UserSettingsResponse> UserSettingsLoadAsync(UserSettingsLoadRequest request, BlazeRpcContext context)
     {
+        if (!Program.Database.isEnabled) return new UserSettingsResponse();
         var serverPlayer = ServerManager.GetServerPlayerByConnectionId(context.Connection.ID)!;
-        serverPlayer.UserSettings.TryGetValue(request.mKey, out var value);
-        return Task.FromResult(new UserSettingsResponse
+        var setting = await Database.GetUserSetting(serverPlayer.UserIdentification.mAccountId, request.mKey);
+        return new UserSettingsResponse
         {
-            mData = value == null ? "" : value,
+            mData = setting,
             mKey = request.mKey
-        });
+        };
     }
-    public override Task<NullStruct> UserSettingsSaveAsync(UserSettingsSaveRequest request, BlazeRpcContext context)
+
+    public override async Task<NullStruct> UserSettingsSaveAsync(UserSettingsSaveRequest request, BlazeRpcContext context)
     {
+        if (!Program.Database.isEnabled) return new NullStruct();
+        if (request.mKey.Equals("FirstTimeFlag")) return new NullStruct();
         var serverPlayer = ServerManager.GetServerPlayerByConnectionId(context.Connection.ID)!;
-        serverPlayer.UserSettings[request.mKey] = request.mData;
-        return Task.FromResult(new NullStruct());
+        await Database.SetUserSetting(serverPlayer.UserIdentification.mAccountId, request.mKey, request.mData);
+        return new NullStruct();
     }
 
     private GetTelemetryServerResponse GetTele()
@@ -199,7 +205,7 @@ internal class UtilComponent : UtilComponentBase.Server
             mFilteredTextList = response
         });
     }
-    
+
     public override Task<NullStruct> SetClientMetricsAsync(ClientMetrics request, BlazeRpcContext context)
     {
         return Task.FromResult(new NullStruct());
