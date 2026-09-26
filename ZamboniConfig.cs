@@ -13,9 +13,12 @@ public class ZamboniConfig
     public string CertPassword { get; set; } = "123456";
     public string TargetProtocol { get; set; } = "NHL14_1.00";
     public bool StartLocalGameServerProvider { get; set; } = true;
+    public ushort CoreServerZProtocolPort { get; set; } = 3939;
+
     public Dictionary<string, GameServerProviderConfig> GameServerProviders { get; set; } = new()
     {
-        { "this", new GameServerProviderConfig
+        {
+            "this", new GameServerProviderConfig
             {
                 Ip = "auto",
                 PingSitePort = 17502,
@@ -27,8 +30,9 @@ public class ZamboniConfig
     public SortedDictionary<string, string> Config { get; set; } = new()
     {
         {
-            "OSDK_MAX_PER_OTP_SIDE","6"
+            "OSDK_MAX_PER_OTP_SIDE", "6"
         }
     };
+
     public string ZamboniTopology { get; set; } = "Relayed";
 }

@@ -1,8 +1,10 @@
 using System.Collections.Concurrent;
 using System.Text;
+using Blaze3SDK;
 using Blaze3SDK.Blaze;
 using Blaze3SDK.Blaze.GameManager;
 using Blaze3SDK.Components;
+using BlazeCommon;
 using Zamboni3.Components.Blaze;
 using ZProtocol;
 
@@ -20,7 +22,7 @@ public class ServerGame
         var game = new ServerGame(creator, request, zamboniTopology);
         if (zamboniTopology == ZamboniTopology.PeerHosted) return game;
 
-        var reserveResponse = await GameServerCommunicator.ReserveInstance(creator, new ReserveInstanceCommand(new ReserveRequest(game.ReplicatedGameData.mGameId, Guid.Parse(game.ReplicatedGameData.mUUID), zamboniTopology, request.mGameProtocolVersionString, request.mSlotCapacities[0] + request.mSlotCapacities[1])));
+        var reserveResponse = await GameServerCommunicator.ReserveInstance(creator, new ReserveInstanceCommand(new ReserveRequest(game.ReplicatedGameData.mGameId, Guid.Parse(game.ReplicatedGameData.mUUID), zamboniTopology, request.mGameProtocolVersionString, request.mSlotCapacities[0] + request.mSlotCapacities[1], Program.ZamboniConfig.CoreServerZProtocolPort)));
 
         var updated = game.ReplicatedGameData;
         if (reserveResponse is not null)
@@ -46,7 +48,7 @@ public class ServerGame
                 updated.mTopologyHostInfo = new HostInfo
                 {
                     mPlayerId = 123,
-                    mSlotId = 0
+                    mSlotId = Byte.MaxValue
                 };
                 updated.mTopologyHostSessionId = 123;
                 updated.mGameState = GameState.PRE_GAME;
@@ -166,10 +168,10 @@ public class ServerGame
         switch (ZamboniTopology)
         {
             case ZamboniTopology.PeerHosted:
-                replicatedGamePlayer = serverPlayer.ToReplicatedGamePlayer((byte)ServerPlayers.Count, ReplicatedGameData.mGameId, false);
+                replicatedGamePlayer = serverPlayer.ToReplicatedGamePlayer(FirstFreeSlotId(), ReplicatedGameData.mGameId, false);
                 break;
             case ZamboniTopology.Relayed:
-                replicatedGamePlayer = serverPlayer.ToReplicatedGamePlayer((byte)ServerPlayers.Count, ReplicatedGameData.mGameId, false, new NetworkAddress
+                replicatedGamePlayer = serverPlayer.ToReplicatedGamePlayer(FirstFreeSlotId(), ReplicatedGameData.mGameId, false, new NetworkAddress
                 {
                     IpAddress = new IpAddress
                     {
@@ -179,13 +181,19 @@ public class ServerGame
                 });
                 break;
             case ZamboniTopology.Dedicated:
-                replicatedGamePlayer = serverPlayer.ToReplicatedGamePlayer((byte)ServerPlayers.Count, ReplicatedGameData.mGameId, true);
+                replicatedGamePlayer = serverPlayer.ToReplicatedGamePlayer(FirstFreeSlotId(), ReplicatedGameData.mGameId, true);
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
         }
 
         ReplicatedGamePlayers.TryAdd(serverPlayer.UserIdentification.mAccountId, replicatedGamePlayer);
+
+        if (ZamboniTopology.Equals(ZamboniTopology.Relayed) || ZamboniTopology.Equals(ZamboniTopology.Dedicated))
+        {
+            var response = await GameServerCommunicator.InformPlayerJoining(this, serverPlayer);
+            if (response.Status == Status.Error) throw new BlazeRpcException(Blaze3RpcError.GAMEMANAGER_ERR_GAME_FULL);
+        }
 
         if (ZamboniTopology == ZamboniTopology.Dedicated && ServerPlayers.Count == 1)
         {
@@ -224,6 +232,22 @@ public class ServerGame
             mGameId = ReplicatedGameData.mGameId,
             mJoiningPlayer = replicatedGamePlayer
         }, true));
+    }
+
+    private byte FirstFreeSlotId()
+    {
+        var usedSlots = ReplicatedGamePlayers.Values.Select(p => p.mSlotId).ToHashSet();
+        int capacity = ReplicatedGameData.mSlotCapacities.Sum(x => x);
+
+        for (int i = 0; i < capacity; i++)
+        {
+            if (!usedSlots.Contains((byte)i))
+            {
+                return (byte)i;
+            }
+        }
+
+        throw new BlazeRpcException(Blaze3RpcError.GAMEMANAGER_ERR_GAME_FULL);
     }
 
     public bool HasSpaceForPlayer()

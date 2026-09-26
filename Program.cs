@@ -40,6 +40,7 @@ internal class Program
 
         var tasks = new List<Task>();
 
+        _ = new GameServerCommunicator().Listen();
         tasks.Add(Task.Run(StartCommandListener));
         tasks.Add(StartCoreServer());
         tasks.Add(new Api().StartAsync());
@@ -49,6 +50,7 @@ internal class Program
             var gameServerProvider = new GameServerProvider();
             tasks.Add(gameServerProvider.Start());
         }
+
         await GameServerCommunicator.ResetAllInstances([ZamboniConfig.TargetProtocol]);
         Logger.Warn(Name + " started");
         await Task.WhenAll(tasks);
