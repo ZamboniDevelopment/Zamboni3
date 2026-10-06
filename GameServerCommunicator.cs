@@ -80,7 +80,7 @@ public class GameServerCommunicator
                 {
                     var remoteIp = ((IPEndPoint)client.Client.RemoteEndPoint!).Address;
 
-                    if (Program.ZamboniConfig.GameServerProviders.Values.Any(config => config.Ip == remoteIp.ToString()))
+                    if (Program.ZamboniConfig.GameServerProviders.Values.Any(config => config.ResolveIp() == remoteIp.ToString()))
                     {
                         try
                         {
