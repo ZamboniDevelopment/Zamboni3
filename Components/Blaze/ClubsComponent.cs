@@ -21,4 +21,9 @@ internal class ClubsComponent : ClubsComponentBase.Server
         return Task.FromResult(new GetClubMembershipForUsersResponse());
     }
     
+    public override Task<NullStruct> GetClubsComponentInfoAsync(NullStruct request, BlazeRpcContext context)
+    {
+        return Task.FromResult(new NullStruct());
+    }
+    
 }
